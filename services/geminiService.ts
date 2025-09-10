@@ -27,29 +27,6 @@ const callProxy = async (action: string, payload: any): Promise<string> => {
   return data.text;
 };
 
-export const analyzeReportContent = async (description: string): Promise<AnalysisResult> => {
-  try {
-    const jsonText = await callProxy('analyze', { description });
-    const parsedResult = JSON.parse(jsonText);
-    
-    if (parsedResult && Array.isArray(parsedResult.tags) && typeof parsedResult.summary === 'string') {
-        return parsedResult as AnalysisResult;
-    } else {
-        console.warn("AI response was not in the expected AnalysisResult format.", parsedResult);
-        return {
-            tags: ["Analisi Incompleta"],
-            summary: parsedResult.summary || "L'analisi ha prodotto un risultato in formato inatteso.",
-        };
-    }
-  } catch (error) {
-    console.error("Error analyzing report content via proxy:", error);
-    return {
-      tags: ["Analisi Fallita"],
-      summary: "Non è stato possibile analizzare il contenuto. Il proxy di sicurezza o il servizio AI potrebbero essere non disponibili.",
-    };
-  }
-};
-
 export const generateBoycottAdvice = async (report: ExperienceReport): Promise<string> => {
   try {
     return await callProxy('advice', { report });

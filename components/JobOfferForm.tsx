@@ -1,22 +1,29 @@
-
 import React, { useState } from 'react';
-import { JobOfferReport, ReportType } from '../types';
+import { JobOfferReport, ReportType, Sector } from '../types';
 import { PaperClipIcon, LinkIcon } from './icons/IconComponents';
+import { JOB_OFFER_REPORT_TAGS } from '../constants';
+
 
 interface JobOfferFormProps {
   onAddReport: (report: JobOfferReport) => void;
+  companies: string[];
+  sectors: string[];
 }
 
-const JobOfferForm: React.FC<JobOfferFormProps> = ({ onAddReport }) => {
+const JobOfferForm: React.FC<JobOfferFormProps> = ({ onAddReport, companies, sectors }) => {
   const [jobTitle, setJobTitle] = useState('');
   const [companyName, setCompanyName] = useState('');
+  const [sector, setSector] = useState<Sector>('');
+  const [customSector, setCustomSector] = useState('');
   const [description, setDescription] = useState('');
-  const [attachmentType, setAttachmentType] = useState<'file' | 'text'>('file');
   const [fileDataUrl, setFileDataUrl] = useState<string>('');
   const [fileName, setFileName] = useState<string>('');
-  const [linkOrText, setLinkOrText] = useState('');
+  const [offerLink, setOfferLink] = useState('');
   const [ralIndicated, setRalIndicated] = useState<boolean | null>(null);
   const [ralAmount, setRalAmount] = useState('');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [customTags, setCustomTags] = useState('');
+  const [showCustomTagsInput, setShowCustomTagsInput] = useState(false);
   const [error, setError] = useState('');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -39,19 +46,29 @@ const JobOfferForm: React.FC<JobOfferFormProps> = ({ onAddReport }) => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleTagChange = (tag: string, isChecked: boolean) => {
+    if (isChecked) {
+        setSelectedTags(prev => [...prev, tag]);
+    } else {
+        setSelectedTags(prev => prev.filter(t => t !== tag));
+    }
+  };
+  
+  const handleCustomTagsCheck = (isChecked: boolean) => {
+    setShowCustomTagsInput(isChecked);
+    if (!isChecked) {
+        setCustomTags('');
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!jobTitle || !companyName || !description) {
-      setError('Tutti i campi di testo sono obbligatori.');
+
+    const finalSector = sector === 'Altro...' ? customSector.trim() : sector;
+
+    if (!jobTitle || !companyName || !description || !finalSector) {
+      setError('Titolo, nome azienda, settore e descrizione sono obbligatori.');
       return;
-    }
-    if (attachmentType === 'file' && !fileDataUrl) {
-        setError('È obbligatorio allegare un file (screenshot o documento).');
-        return;
-    }
-     if (attachmentType === 'text' && !linkOrText.trim()) {
-        setError('È obbligatorio inserire un link o un testo.');
-        return;
     }
     if (ralIndicated === null) {
         setError('Specifica se la RAL era indicata nell\'offerta.');
@@ -64,24 +81,25 @@ const JobOfferForm: React.FC<JobOfferFormProps> = ({ onAddReport }) => {
 
     setError('');
     
-    const newReport: JobOfferReport = {
-      id: crypto.randomUUID(),
-      type: ReportType.JobOffer,
-      jobTitle,
-      companyName,
-      description,
-      createdAt: new Date(),
-      supportCount: 0,
-      ralIndicated,
-      ralAmount: ralIndicated ? parseFloat(ralAmount) : undefined,
-    };
+    const customTagsArray = customTags.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+    const finalTags = Array.from(new Set([...selectedTags, ...customTagsArray]));
 
-    if (attachmentType === 'file') {
-        newReport.fileDataUrl = fileDataUrl;
-        newReport.fileName = fileName;
-    } else {
-        newReport.linkOrText = linkOrText;
-    }
+    const newReport: JobOfferReport = {
+        id: crypto.randomUUID(),
+        type: ReportType.JobOffer,
+        jobTitle,
+        companyName: companyName.trim(),
+        sector: finalSector,
+        description,
+        createdAt: new Date(),
+        supportCount: 0,
+        ralIndicated,
+        ralAmount: ralIndicated ? parseFloat(ralAmount) : undefined,
+        offerLink: offerLink || undefined,
+        fileDataUrl: fileDataUrl || undefined,
+        fileName: fileName || undefined,
+        tags: finalTags
+    };
 
     onAddReport(newReport);
   };
@@ -94,29 +112,62 @@ const JobOfferForm: React.FC<JobOfferFormProps> = ({ onAddReport }) => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label htmlFor="jobTitle" className="block text-sm font-medium text-slate-700 mb-1">Posizione Offerta *</label>
-          <input
-            type="text"
-            id="jobTitle"
-            value={jobTitle}
-            onChange={(e) => setJobTitle(e.target.value)}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
-            placeholder="Es. 'Magazziniere', 'Stage in Marketing'"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label htmlFor="jobTitle" className="block text-sm font-medium text-slate-700 mb-1">Posizione Offerta *</label>
+              <input
+                type="text"
+                id="jobTitle"
+                value={jobTitle}
+                onChange={(e) => setJobTitle(e.target.value)}
+                className="w-full px-4 py-2 border bg-white text-slate-800 border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
+                placeholder="Es. 'Magazziniere'"
+              />
+            </div>
+            <div>
+              <label htmlFor="companyName" className="block text-sm font-medium text-slate-700 mb-1">Nome Azienda *</label>
+              <input
+                type="text"
+                id="companyName"
+                list="company-list"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                className="w-full px-4 py-2 border bg-white text-slate-800 border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
+                placeholder="Inizia a scrivere..."
+              />
+              <datalist id="company-list">
+                {companies.map(c => <option key={c} value={c} />)}
+              </datalist>
+            </div>
         </div>
         
         <div>
-          <label htmlFor="companyName" className="block text-sm font-medium text-slate-700 mb-1">Nome Azienda *</label>
-          <input
-            type="text"
-            id="companyName"
-            value={companyName}
-            onChange={(e) => setCompanyName(e.target.value)}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
-            placeholder="Nome dell'azienda che ha pubblicato l'offerta"
-          />
+            <label htmlFor="sector" className="block text-sm font-medium text-slate-700 mb-1">Settore *</label>
+            <select
+              id="sector"
+              value={sector}
+              onChange={(e) => setSector(e.target.value as Sector)}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition bg-white text-slate-800"
+            >
+              <option value="" disabled>Seleziona un settore</option>
+              {sectors.map(s => <option key={s} value={s}>{s}</option>)}
+              <option value="Altro...">Altro...</option>
+            </select>
         </div>
+
+        {sector === 'Altro...' && (
+            <div>
+                <label htmlFor="customSector" className="block text-sm font-medium text-slate-700 mb-1">Specifica settore *</label>
+                <input
+                    type="text"
+                    id="customSector"
+                    value={customSector}
+                    onChange={(e) => setCustomSector(e.target.value)}
+                    className="w-full px-4 py-2 border bg-white text-slate-800 border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
+                    placeholder="Es. 'Animazione turistica'"
+                />
+            </div>
+        )}
 
         <div>
           <label htmlFor="description" className="block text-sm font-medium text-slate-700 mb-1">Perché la segnali? *</label>
@@ -125,29 +176,81 @@ const JobOfferForm: React.FC<JobOfferFormProps> = ({ onAddReport }) => {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={5}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
+            className="w-full px-4 py-2 border bg-white text-slate-800 border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
             placeholder="Descrivi cosa c'è di sbagliato nell'offerta. Es. 'Stipendio non dichiarato', 'Richieste sproporzionate per uno stage', 'Partita IVA obbligatoria per lavoro dipendente'."
           ></textarea>
         </div>
-        
-        <div className="bg-slate-50 p-6 rounded-lg border border-slate-200">
-            <label className="block text-sm font-bold text-slate-700">RAL presente?</label>
-            <fieldset className="mt-2">
-                <legend className="sr-only">RAL presente?</legend>
-                <div className="flex items-center space-x-4">
-                     <div className="flex items-center">
-                        <input id="ral-yes" name="ral-indicated" type="radio" checked={ralIndicated === true} onChange={() => setRalIndicated(true)} className="h-4 w-4 text-sky-600 border-slate-300 focus:ring-sky-500" />
-                        <label htmlFor="ral-yes" className="ml-2 block text-sm font-medium text-slate-700">Sì</label>
+
+         <div className="bg-slate-50 p-6 rounded-lg border border-slate-200">
+            <h4 className="text-lg font-bold text-slate-800">Tag Principali</h4>
+            <p className="text-sm text-slate-500 mb-4">Seleziona le criticità più evidenti.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+                {JOB_OFFER_REPORT_TAGS.map(tag => (
+                     <div key={tag} className="relative flex items-start">
+                        <div className="flex h-5 items-center">
+                            <input
+                                id={`tag-${tag}`}
+                                name="tags"
+                                type="checkbox"
+                                onChange={(e) => handleTagChange(tag, e.target.checked)}
+                                className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                            />
+                        </div>
+                        <div className="ml-3 text-sm">
+                            <label htmlFor={`tag-${tag}`} className="font-medium text-slate-700">{tag}</label>
+                        </div>
                     </div>
-                    <div className="flex items-center">
-                        <input id="ral-no" name="ral-indicated" type="radio" checked={ralIndicated === false} onChange={() => setRalIndicated(false)} className="h-4 w-4 text-sky-600 border-slate-300 focus:ring-sky-500" />
-                        <label htmlFor="ral-no" className="ml-2 block text-sm font-medium text-slate-700">No</label>
+                ))}
+                 <div className="relative flex items-start">
+                    <div className="flex h-5 items-center">
+                        <input
+                            id="job-tag-other"
+                            name="tags-other"
+                            type="checkbox"
+                            onChange={(e) => handleCustomTagsCheck(e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                        />
+                    </div>
+                    <div className="ml-3 text-sm">
+                        <label htmlFor="job-tag-other" className="font-medium text-slate-700">Altro...</label>
                     </div>
                 </div>
-            </fieldset>
+            </div>
+            {showCustomTagsInput && (
+                <div className="mt-4">
+                    <label htmlFor="customJobTags" className="sr-only">Specifica altri tag</label>
+                    <input
+                        type="text"
+                        id="customJobTags"
+                        value={customTags}
+                        onChange={e => setCustomTags(e.target.value)}
+                        className="w-full px-4 py-2 border bg-white text-slate-800 border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
+                        placeholder="Aggiungi altri tag, separati da una virgola"
+                    />
+                </div>
+            )}
+        </div>
+        
+        <div className="bg-slate-50 p-6 rounded-lg border border-slate-200 space-y-4">
+            <div>
+                <label className="block text-sm font-bold text-slate-700">RAL presente?</label>
+                <fieldset className="mt-2">
+                    <legend className="sr-only">RAL presente?</legend>
+                    <div className="flex items-center space-x-4">
+                        <div className="flex items-center">
+                            <input id="ral-yes" name="ral-indicated" type="radio" checked={ralIndicated === true} onChange={() => setRalIndicated(true)} className="h-4 w-4 text-sky-600 border-slate-300 focus:ring-sky-500" />
+                            <label htmlFor="ral-yes" className="ml-2 block text-sm font-medium text-slate-700">Sì</label>
+                        </div>
+                        <div className="flex items-center">
+                            <input id="ral-no" name="ral-indicated" type="radio" checked={ralIndicated === false} onChange={() => setRalIndicated(false)} className="h-4 w-4 text-sky-600 border-slate-300 focus:ring-sky-500" />
+                            <label htmlFor="ral-no" className="ml-2 block text-sm font-medium text-slate-700">No</label>
+                        </div>
+                    </div>
+                </fieldset>
+            </div>
 
             {ralIndicated === true && (
-                 <div className="mt-4">
+                 <div>
                     <label htmlFor="ralAmount" className="block text-sm font-medium text-slate-700 mb-1">A quanto ammonta la RAL?</label>
                     <div className="relative">
                         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -158,7 +261,7 @@ const JobOfferForm: React.FC<JobOfferFormProps> = ({ onAddReport }) => {
                             id="ralAmount"
                             value={ralAmount}
                             onChange={(e) => setRalAmount(e.target.value)}
-                            className="w-full pl-7 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
+                            className="w-full pl-7 pr-4 py-2 border bg-white text-slate-800 border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
                             placeholder="25000"
                             step="100"
                         />
@@ -168,60 +271,44 @@ const JobOfferForm: React.FC<JobOfferFormProps> = ({ onAddReport }) => {
                     </div>
                 </div>
             )}
+            
+            <div>
+                 <label htmlFor="offerLink" className="block text-sm font-medium text-slate-700 mb-1">Link all'offerta (opzionale)</label>
+                 <div className="relative">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                        <LinkIcon className="h-5 w-5 text-slate-400" />
+                    </div>
+                    <input
+                        type="url"
+                        id="offerLink"
+                        value={offerLink}
+                        onChange={(e) => setOfferLink(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border bg-white text-slate-800 border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
+                        placeholder="https://..."
+                    />
+                </div>
+            </div>
         </div>
 
-
         <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Allega Prova *</label>
-            <div className="flex space-x-2 rounded-lg bg-slate-100 p-1 mb-4">
-                <button
-                    type="button"
-                    onClick={() => setAttachmentType('file')}
-                    className={`w-1/2 flex items-center justify-center space-x-2 px-3 py-2 text-sm font-medium rounded-md transition-colors ${attachmentType === 'file' ? 'bg-white text-sky-600 shadow' : 'text-slate-600 hover:bg-slate-200'}`}
-                >
-                    <PaperClipIcon className="w-5 h-5" />
-                    <span>Allega File</span>
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setAttachmentType('text')}
-                    className={`w-1/2 flex items-center justify-center space-x-2 px-3 py-2 text-sm font-medium rounded-md transition-colors ${attachmentType === 'text' ? 'bg-white text-sky-600 shadow' : 'text-slate-600 hover:bg-slate-200'}`}
-                >
-                    <LinkIcon className="w-5 h-5" />
-                    <span>Allega Link/Testo</span>
-                </button>
-            </div>
-
-            {attachmentType === 'file' ? (
-                 <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-md">
-                    <div className="space-y-1 text-center">
-                        <PaperClipIcon className="mx-auto h-10 w-10 text-slate-400" />
-                        <div className="flex text-sm text-slate-600">
-                            <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-sky-600 hover:text-sky-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-sky-500">
-                                <span>Carica un file</span>
-                                <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept="image/*,.pdf" />
-                            </label>
-                            <p className="pl-1">o trascinalo qui</p>
-                        </div>
-                        {fileName ? (
-                            <p className="text-sm text-emerald-600 font-semibold">{fileName}</p>
-                        ) : (
-                            <p className="text-xs text-slate-500">PNG, JPG, PDF fino a 5MB</p>
-                        )}
+            <label className="block text-sm font-medium text-slate-700 mb-2">Allega Screenshot o File (opzionale)</label>
+            <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-md">
+                <div className="space-y-1 text-center">
+                    <PaperClipIcon className="mx-auto h-10 w-10 text-slate-400" />
+                    <div className="flex text-sm text-slate-600">
+                        <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-sky-600 hover:text-sky-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-sky-500">
+                            <span>Carica un file</span>
+                            <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept="image/*,.pdf" />
+                        </label>
+                        <p className="pl-1">o trascinalo qui</p>
                     </div>
+                    {fileName ? (
+                        <p className="text-sm text-emerald-600 font-semibold">{fileName}</p>
+                    ) : (
+                        <p className="text-xs text-slate-500">PNG, JPG, PDF fino a 5MB</p>
+                    )}
                 </div>
-            ) : (
-                <div>
-                     <textarea
-                        id="linkOrText"
-                        value={linkOrText}
-                        onChange={(e) => setLinkOrText(e.target.value)}
-                        rows={6}
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
-                        placeholder="Incolla qui il link all'offerta di lavoro o il testo completo dell'annuncio/messaggio."
-                    ></textarea>
-                </div>
-            )}
+            </div>
         </div>
 
         {error && <p className="text-red-600 text-sm text-center">{error}</p>}

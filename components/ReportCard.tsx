@@ -6,10 +6,10 @@ import { BuildingIcon, HandshakeIcon, ShareIcon, TagIcon } from './icons/IconCom
 interface ReportCardProps {
   report: ExperienceReport;
   onSupport: (id: string) => void;
-  onView: (report: ExperienceReport) => void;
+  isSupported: boolean;
 }
 
-const ReportCard: React.FC<ReportCardProps> = ({ report, onSupport, onView }) => {
+const ReportCard: React.FC<ReportCardProps> = ({ report, onSupport, isSupported }) => {
     
     const timeAgo = (date: Date): string => {
         const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
@@ -37,6 +37,11 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onSupport, onView }) =>
         }
     };
 
+    const handleNav = (e: React.MouseEvent<HTMLAnchorElement>, path: string) => {
+        e.preventDefault();
+        window.location.hash = path;
+    };
+
     return (
         <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden flex flex-col">
             <div className="p-6 flex-grow">
@@ -44,9 +49,11 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onSupport, onView }) =>
                     <span className="text-xs font-semibold text-sky-600 bg-sky-100 px-2 py-1 rounded-full">{report.sector}</span>
                     <span className="text-xs text-slate-500">{timeAgo(report.createdAt)}</span>
                 </div>
-                <h3 className="mt-4 text-xl font-bold text-slate-800 hover:text-sky-700 cursor-pointer" onClick={() => onView(report)}>
-                    {report.title}
-                </h3>
+                 <a href={`#/report/${report.id}`} onClick={(e) => handleNav(e, `#/report/${report.id}`)} className="no-underline">
+                    <h3 className="mt-4 text-xl font-bold text-slate-800 hover:text-sky-700">
+                        {report.title}
+                    </h3>
+                </a>
                 <div className="flex items-center mt-2 text-slate-600">
                     <BuildingIcon className="w-4 h-4 mr-2 text-slate-400" />
                     <span>{report.companyName}</span>
@@ -68,18 +75,24 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onSupport, onView }) =>
             <div className="bg-slate-50 px-6 py-3 border-t border-slate-100 flex justify-between items-center">
                 <button
                     onClick={() => onSupport(report.id)}
-                    className="flex items-center space-x-2 text-slate-600 hover:text-emerald-600 transition-colors"
+                    disabled={isSupported}
+                    className={`flex items-center space-x-2 text-slate-600 transition-colors ${
+                        isSupported 
+                        ? 'text-emerald-600 cursor-default' 
+                        : 'hover:text-emerald-600'
+                    }`}
                 >
                     <HandshakeIcon className="w-5 h-5" />
                     <span className="font-semibold">{report.supportCount} Sostengono</span>
                 </button>
                 <div className="flex items-center space-x-3">
-                    <button
-                        onClick={() => onView(report)}
+                    <a
+                        href={`#/report/${report.id}`}
+                        onClick={(e) => handleNav(e, `#/report/${report.id}`)}
                         className="text-sm font-medium text-sky-600 hover:underline"
                     >
                         Leggi di più
-                    </button>
+                    </a>
                     <button onClick={handleShare} className="text-slate-500 hover:text-sky-600 transition-colors">
                         <ShareIcon className="w-5 h-5"/>
                     </button>

@@ -6,11 +6,11 @@ import { BuildingIcon, HandshakeIcon, TagIcon } from './icons/IconComponents';
 
 interface ReportDetailProps {
   report: ExperienceReport;
-  onBack: () => void;
   onSupport: (id: string) => void;
+  isSupported: boolean;
 }
 
-const ReportDetail: React.FC<ReportDetailProps> = ({ report, onBack, onSupport }) => {
+const ReportDetail: React.FC<ReportDetailProps> = ({ report, onSupport, isSupported }) => {
   const [advice, setAdvice] = useState<string>('');
   const [isLoadingAdvice, setIsLoadingAdvice] = useState<boolean>(true);
 
@@ -25,13 +25,18 @@ const ReportDetail: React.FC<ReportDetailProps> = ({ report, onBack, onSupport }
     fetchAdvice();
   }, [report]);
 
+  const handleNav = (e: React.MouseEvent<HTMLAnchorElement>, path: string) => {
+    e.preventDefault();
+    window.location.hash = path;
+  };
+
   return (
     <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
       <div className="p-6 sm:p-8">
-        <button onClick={onBack} className="mb-6 text-sm font-medium text-sky-600 hover:text-sky-800 flex items-center space-x-2">
+        <a href="#/" onClick={(e) => handleNav(e, '#/')} className="mb-6 text-sm font-medium text-sky-600 hover:text-sky-800 flex items-center space-x-2">
             <i className="fa-solid fa-arrow-left"></i>
             <span>Torna a tutte le segnalazioni</span>
-        </button>
+        </a>
 
         <span className="text-xs font-semibold text-sky-600 bg-sky-100 px-2 py-1 rounded-full">{report.sector}</span>
         
@@ -97,10 +102,15 @@ const ReportDetail: React.FC<ReportDetailProps> = ({ report, onBack, onSupport }
       <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-center">
         <button
             onClick={() => onSupport(report.id)}
-            className="w-full sm:w-auto flex items-center justify-center space-x-3 px-8 py-3 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-lg"
+            disabled={isSupported}
+            className={`w-full sm:w-auto flex items-center justify-center space-x-3 px-8 py-3 text-white font-bold rounded-lg transition-colors shadow-lg ${
+                isSupported 
+                ? 'bg-emerald-300 cursor-not-allowed'
+                : 'bg-emerald-600 hover:bg-emerald-700'
+            }`}
         >
             <HandshakeIcon />
-            <span>Mostra il tuo supporto ({report.supportCount})</span>
+            <span>{isSupported ? 'Hai già mostrato supporto' : `Mostra il tuo supporto (${report.supportCount})`}</span>
         </button>
       </div>
     </div>

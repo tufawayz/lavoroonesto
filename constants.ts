@@ -1,35 +1,66 @@
+export const SECTORS: string[] = [
+  "Vendita al dettaglio",
+  "Vendita all'ingrosso",
+  "E-commerce",
+  "Agenti di commercio",
+  "Ristoranti e bar",
+  "Hotel e alberghi",
+  "Catering e mense",
+  "Trasporti e spedizioni",
+  "Magazzino e stoccaggio",
+  "Corrieri espressi (Rider)",
+  "Servizi di pulizie",
+  "Assistenza anziani e badanti",
+  "Babysitter e colf",
+  "Sviluppo software",
+  "Consulenza IT",
+  "Assistenza tecnica",
+  "Costruzioni",
+  "Impiantistica",
+  "Manutenzione",
+  "Call Center Inbound",
+  "Call Center Outbound",
+  "Telemarketing",
+  "Agricoltura e Allevamento",
+  "Sanità e Assistenza",
+  "Marketing e Comunicazione",
+  "Manifatturiero",
+];
 
-export const SECTORS_HIERARCHY: { [key: string]: string[] } = {
-  "Vendita": [
-    "Vendita al dettaglio",
-    "Vendita all'ingrosso",
-    "E-commerce",
-    "Agenti di commercio"
-  ],
-  "Ristorazione": [
-    "Ristoranti e bar",
-    "Hotel e alberghi",
-    "Catering e mense",
-  ],
-  "Logistica": [
-    "Trasporti e spedizioni",
-    "Magazzino e stoccaggio",
-    "Corrieri espressi (Rider)",
-  ],
-  "Servizi alla Persona": [
-    "Servizi di pulizie",
-    "Assistenza anziani e badanti",
-    "Babysitter e colf",
-  ],
-  "IT e Tecnologia": [
-    "Sviluppo software",
-    "Consulenza IT",
-    "Assistenza tecnica",
-  ],
-  "Edilizia": ["Costruzioni", "Impiantistica", "Manutenzione"],
-  "Call Center": ["Inbound", "Outbound", "Telemarketing"],
-  "Agricoltura": ["Coltivazione", "Allevamento"],
-  "Sanità": ["Infermieri", "Operatori socio-sanitari", "Personale ausiliario"],
-  "Marketing e Comunicazione": ["Marketing digitale", "Eventi", "Pubbliche relazioni"],
-  "Manifatturiero": ["Operaio generico", "Controllo qualità"],
-};
+export const TOP_COMPANIES: string[] = [
+    "Accenture", "Adecco", "Amazon", "Apple", "Armani", "Barilla", "Bending Spoons", "Capgemini",
+    "Coca-Cola", "Conad", "Coop", "Deloitte", "Diesel", "Enel", "Eni", "Esselunga", "EY (Ernst & Young)",
+    "Ferrari", "Ferrero", "Fiat (Stellantis)", "Generali", "Google", "Gucci", "H&M", "IKEA", "Intesa Sanpaolo",
+    "KPMG", "Lavazza", "Leonardo", "Lidl", "Luxottica", "Maire Tecnimont", "McDonald's", "Mediaset", "Microsoft",
+    "Nestlé", "Oracle", "Pirelli", "Poste Italiane", "Prada", "PwC", "Rai", "Randstad", "Ryanair", "Salesforce",
+    "Samsung", "SAP", "TIM", "UniCredit", "Unilever", "Vodafone", "Zara (Inditex)"
+];
+
+export const EXPERIENCE_REPORT_TAGS: string[] = [
+    "Mobbing",
+    "Bossing",
+    "Discriminazione",
+    "Molestie",
+    "Contratto non rispettato",
+    "Contratto irregolare",
+    "Lavoro in nero",
+    "Stipendio basso",
+    "Stipendio non pagato",
+    "Straordinari non pagati",
+    "Sicurezza sul lavoro",
+    "Orari di lavoro massacranti",
+    "Mancanza di formazione",
+    "Pressioni psicologiche",
+];
+
+export const JOB_OFFER_REPORT_TAGS: string[] = [
+    "RAL non specificata",
+    "Annuncio ingannevole",
+    "Partita IVA richiesta",
+    "Richieste sproporzionate",
+    "Stage non retribuito",
+    "Periodo di prova non retribuito",
+    "Linguaggio discriminatorio",
+    "Poca trasparenza",
+    "Processo di selezione poco serio",
+];

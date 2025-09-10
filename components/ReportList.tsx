@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Report, ReportType, ExperienceReport } from '../types';
+import { Report, ReportType } from '../types';
 import ReportCard from './ReportCard';
 import JobOfferReportCard from './JobOfferReportCard';
 
@@ -8,10 +7,10 @@ import JobOfferReportCard from './JobOfferReportCard';
 interface ReportListProps {
   reports: Report[];
   onSupport: (id: string) => void;
-  onView: (report: ExperienceReport) => void;
+  supportedReports: string[];
 }
 
-const ReportList: React.FC<ReportListProps> = ({ reports, onSupport, onView }) => {
+const ReportList: React.FC<ReportListProps> = ({ reports, onSupport, supportedReports }) => {
   if (reports.length === 0) {
     return (
       <div className="text-center py-16 px-6 bg-white rounded-lg shadow-md">
@@ -25,11 +24,12 @@ const ReportList: React.FC<ReportListProps> = ({ reports, onSupport, onView }) =
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
       {reports.map((report) => {
+        const isSupported = supportedReports.includes(report.id);
         if (report.type === ReportType.Experience) {
-          return <ReportCard key={report.id} report={report} onSupport={onSupport} onView={onView} />
+          return <ReportCard key={report.id} report={report} onSupport={onSupport} isSupported={isSupported} />
         }
         if (report.type === ReportType.JobOffer) {
-          return <JobOfferReportCard key={report.id} report={report} onSupport={onSupport} />
+          return <JobOfferReportCard key={report.id} report={report} onSupport={onSupport} isSupported={isSupported} />
         }
         return null;
       })}

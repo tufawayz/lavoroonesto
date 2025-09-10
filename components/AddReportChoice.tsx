@@ -1,16 +1,19 @@
 
 import React from 'react';
-import type { AppView } from '../types';
 import { BriefcaseOutlineIcon, ChatBubbleLeftRightIcon } from './icons/IconComponents';
 
-interface AddReportChoiceProps {
-  setCurrentView: (view: AppView) => void;
-}
+const ChoiceCard: React.FC<{title: string, description: string, icon: React.ReactNode, href: string}> = ({ title, description, icon, href }) => {
+    
+    const handleNav = (e: React.MouseEvent<HTMLAnchorElement>, path: string) => {
+        e.preventDefault();
+        window.location.hash = path;
+    };
 
-const ChoiceCard: React.FC<{title: string, description: string, icon: React.ReactNode, onClick: () => void}> = ({ title, description, icon, onClick }) => (
-    <div 
-        onClick={onClick}
-        className="bg-white rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 cursor-pointer p-8 text-center flex flex-col items-center"
+    return (
+    <a 
+        href={href}
+        onClick={(e) => handleNav(e, href)}
+        className="bg-white rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 cursor-pointer p-8 text-center flex flex-col items-center no-underline"
     >
         <div className="bg-sky-100 text-sky-600 rounded-full p-4 mb-4">
             {icon}
@@ -21,10 +24,11 @@ const ChoiceCard: React.FC<{title: string, description: string, icon: React.Reac
             <span>Inizia ora</span>
             <i className="fa-solid fa-arrow-right ml-2 transition-transform group-hover:translate-x-1"></i>
         </div>
-    </div>
-);
+    </a>
+    );
+};
 
-const AddReportChoice: React.FC<AddReportChoiceProps> = ({ setCurrentView }) => {
+const AddReportChoice: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto p-4">
         <div className="text-center mb-12">
@@ -36,13 +40,13 @@ const AddReportChoice: React.FC<AddReportChoiceProps> = ({ setCurrentView }) => 
                 title="Offerta di Lavoro"
                 description="Segnala un annuncio di lavoro ingannevole, con richieste illegittime o condizioni palesemente svantaggiose."
                 icon={<BriefcaseOutlineIcon className="w-8 h-8" />}
-                onClick={() => setCurrentView('ADD_JOB_OFFER_FORM')}
+                href="#/segnala/offerta"
             />
             <ChoiceCard 
                 title="Esperienza Lavorativa"
                 description="Racconta un'esperienza di sfruttamento, mobbing, mancati pagamenti o altre violazioni subite sul posto di lavoro."
                 icon={<ChatBubbleLeftRightIcon className="w-8 h-8" />}
-                onClick={() => setCurrentView('ADD_EXPERIENCE_FORM')}
+                href="#/segnala/esperienza"
             />
         </div>
     </div>

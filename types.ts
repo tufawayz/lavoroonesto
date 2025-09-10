@@ -1,4 +1,3 @@
-
 export type Sector = string;
 
 export enum ReportType {
@@ -27,12 +26,14 @@ export interface ExperienceReport extends BaseReport {
 export interface JobOfferReport extends BaseReport {
   type: ReportType.JobOffer;
   jobTitle: string;
+  sector: Sector;
   description: string; // Why it's being reported
   fileDataUrl?: string; // Base64 encoded file
   fileName?: string;
-  linkOrText?: string; // For URL or long text
+  offerLink?: string; // For URL
   ralIndicated?: boolean;
   ralAmount?: number;
+  tags: string[];
 }
 
 export type Report = ExperienceReport | JobOfferReport;
@@ -49,4 +50,5 @@ export type AppView =
   | "VIEW_REPORT" 
   | "ADD_REPORT_CHOICE"
   | "ADD_EXPERIENCE_FORM"
-  | "ADD_JOB_OFFER_FORM";
+  | "ADD_JOB_OFFER_FORM"
+  | "VIEW_JOB_OFFER_REPORT";

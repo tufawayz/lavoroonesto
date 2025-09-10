@@ -1,6 +1,6 @@
 // /api/gemini-proxy.ts
 // Vercel Edge Function to securely proxy requests to the Google Gemini API.
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 
 export const config = {
   runtime: 'edge', // Use the modern Edge runtime
@@ -27,30 +27,10 @@ export default async function handler(request: Request) {
   try {
     const { action, payload } = await request.json();
 
-    // Handle non-streaming (JSON) cases
     let prompt: string;
     let config: any = {};
     
     switch (action) {
-      case 'analyze':
-        prompt = `Analizza la seguente descrizione di un'esperienza lavorativa negativa. Estrai le problematiche principali come una lista di stringhe per i "tags" (massimo 3) e fornisci un breve "summary" del problema.
-        Descrizione: "${payload.description}"
-        Restituisci ESATTAMENTE e SOLO un oggetto JSON con questa struttura: { "tags": ["tag1", "tag2"], "summary": "riassunto del problema" }`;
-        config = {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              tags: { 
-                type: Type.ARRAY,
-                items: { type: Type.STRING }
-              },
-              summary: { type: Type.STRING }
-            }
-          }
-        };
-        break;
-
       case 'advice':
         const report = payload.report;
         prompt = `Un utente ha segnalato l'azienda "${report.companyName}" nel settore "${report.sector}" per le seguenti ragioni: ${report.title}. La sua descrizione del problema è: "${report.description}". 

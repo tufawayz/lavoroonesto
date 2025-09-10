@@ -1,11 +1,11 @@
-
 import React, { useState } from 'react';
-import { SECTORS_HIERARCHY } from '../constants';
+import { EXPERIENCE_REPORT_TAGS } from '../constants';
 import { ExperienceReport, Sector, ReportType } from '../types';
-import { analyzeReportContent } from '../services/geminiService';
 
 interface ReportFormProps {
   onAddReport: (report: ExperienceReport) => void;
+  companies: string[];
+  sectors: string[];
 }
 
 const UNKEPT_PROMISE_OPTIONS = [
@@ -18,19 +18,22 @@ const UNKEPT_PROMISE_OPTIONS = [
 ];
 
 
-const ReportForm: React.FC<ReportFormProps> = ({ onAddReport }) => {
+const ReportForm: React.FC<ReportFormProps> = ({ onAddReport, companies, sectors }) => {
   const [title, setTitle] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [sector, setSector] = useState<Sector>('');
+  const [customSector, setCustomSector] = useState('');
   const [description, setDescription] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(true);
   const [authorName, setAuthorName] = useState('');
   const [unkeptPromises, setUnkeptPromises] = useState<string[]>([]);
   const [customPromise, setCustomPromise] = useState('');
   const [showCustomPromiseInput, setShowCustomPromiseInput] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [customTags, setCustomTags] = useState('');
+  const [showCustomTagsInput, setShowCustomTagsInput] = useState(false);
   const [error, setError] = useState('');
-
+  
   const handlePromiseChange = (promise: string, isChecked: boolean) => {
     if (isChecked) {
         setUnkeptPromises(prev => [...prev, promise]);
@@ -39,52 +42,63 @@ const ReportForm: React.FC<ReportFormProps> = ({ onAddReport }) => {
     }
   };
 
+  const handleTagChange = (tag: string, isChecked: boolean) => {
+    if (isChecked) {
+        setSelectedTags(prev => [...prev, tag]);
+    } else {
+        setSelectedTags(prev => prev.filter(t => t !== tag));
+    }
+  };
+  
+  const handleCustomTagsCheck = (isChecked: boolean) => {
+    setShowCustomTagsInput(isChecked);
+    if (!isChecked) {
+        setCustomTags('');
+    }
+  };
+
   const handleCustomPromiseCheck = (isChecked: boolean) => {
     setShowCustomPromiseInput(isChecked);
     if (!isChecked) {
-        setCustomPromise(''); // Clear custom text if "Altro" is unchecked
+        setCustomPromise('');
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !companyName || !description || !sector) {
+    
+    const finalSector = sector === 'Altro...' ? customSector.trim() : sector;
+
+    if (!title || !companyName || !description || !finalSector) {
       setError('Tutti i campi contrassegnati con * sono obbligatori.');
       return;
     }
     setError('');
-    setIsLoading(true);
 
     const finalPromises = [...unkeptPromises];
     if (showCustomPromiseInput && customPromise.trim()) {
         finalPromises.push(customPromise.trim());
     }
 
-    try {
-      const analysis = await analyzeReportContent(description);
-      
-      const newReport: ExperienceReport = {
-        id: crypto.randomUUID(),
-        type: ReportType.Experience,
-        title,
-        companyName,
-        sector,
-        description,
-        isAnonymous,
-        authorName: isAnonymous ? 'Anonimo' : authorName,
-        createdAt: new Date(),
-        supportCount: 0,
-        tags: analysis.tags,
-        unkeptPromises: finalPromises.length > 0 ? finalPromises : undefined,
-      };
+    const customTagsArray = customTags.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+    const finalTags = Array.from(new Set([...selectedTags, ...customTagsArray]));
 
-      onAddReport(newReport);
-    } catch (apiError) {
-      console.error("Failed during form submission process", apiError);
-      setError("Si è verificato un errore durante l'analisi della segnalazione. Riprova.");
-    } finally {
-      setIsLoading(false);
-    }
+    const newReport: ExperienceReport = {
+      id: crypto.randomUUID(),
+      type: ReportType.Experience,
+      title,
+      companyName: companyName.trim(),
+      sector: finalSector,
+      description,
+      isAnonymous,
+      authorName: isAnonymous ? 'Anonimo' : authorName,
+      createdAt: new Date(),
+      supportCount: 0,
+      tags: finalTags,
+      unkeptPromises: finalPromises.length > 0 ? finalPromises : undefined,
+    };
+
+    onAddReport(newReport);
   };
 
   return (
@@ -102,7 +116,7 @@ const ReportForm: React.FC<ReportFormProps> = ({ onAddReport }) => {
             id="title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
+            className="w-full px-4 py-2 border bg-white text-slate-800 border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
             placeholder="Es. Mancato pagamento straordinari"
           />
         </div>
@@ -113,11 +127,15 @@ const ReportForm: React.FC<ReportFormProps> = ({ onAddReport }) => {
             <input
               type="text"
               id="companyName"
+              list="company-list"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
-              placeholder="Nome dell'azienda"
+              className="w-full px-4 py-2 border bg-white text-slate-800 border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
+              placeholder="Inizia a scrivere il nome..."
             />
+            <datalist id="company-list">
+                {companies.map(c => <option key={c} value={c} />)}
+            </datalist>
           </div>
           <div>
             <label htmlFor="sector" className="block text-sm font-medium text-slate-700 mb-1">Settore *</label>
@@ -125,19 +143,28 @@ const ReportForm: React.FC<ReportFormProps> = ({ onAddReport }) => {
               id="sector"
               value={sector}
               onChange={(e) => setSector(e.target.value as Sector)}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition bg-white"
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition bg-white text-slate-800"
             >
               <option value="" disabled>Seleziona un settore</option>
-              {Object.entries(SECTORS_HIERARCHY).map(([category, subcategories]) => (
-                <optgroup key={category} label={category}>
-                  {subcategories.map(subcategory => (
-                    <option key={subcategory} value={subcategory}>{subcategory}</option>
-                  ))}
-                </optgroup>
-              ))}
+              {sectors.map(s => <option key={s} value={s}>{s}</option>)}
+              <option value="Altro...">Altro...</option>
             </select>
           </div>
         </div>
+
+        {sector === 'Altro...' && (
+            <div className="sm:col-start-2">
+                <label htmlFor="customSector" className="block text-sm font-medium text-slate-700 mb-1">Specifica settore *</label>
+                <input
+                    type="text"
+                    id="customSector"
+                    value={customSector}
+                    onChange={(e) => setCustomSector(e.target.value)}
+                    className="w-full px-4 py-2 border bg-white text-slate-800 border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
+                    placeholder="Es. 'Animazione turistica'"
+                />
+            </div>
+        )}
 
         <div>
           <label htmlFor="description" className="block text-sm font-medium text-slate-700 mb-1">Descrizione Dettagliata *</label>
@@ -146,9 +173,59 @@ const ReportForm: React.FC<ReportFormProps> = ({ onAddReport }) => {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={8}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
+            className="w-full px-4 py-2 border bg-white text-slate-800 border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
             placeholder="Descrivi la situazione nel dettaglio. Includi informazioni su orari, stipendio, mansioni, e qualsiasi altra violazione."
           ></textarea>
+        </div>
+
+        <div className="bg-slate-50 p-6 rounded-lg border border-slate-200">
+            <h4 className="text-lg font-bold text-slate-800">Tag Principali</h4>
+            <p className="text-sm text-slate-500 mb-4">Seleziona i tag che meglio descrivono la situazione.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+                {EXPERIENCE_REPORT_TAGS.map(tag => (
+                     <div key={tag} className="relative flex items-start">
+                        <div className="flex h-5 items-center">
+                            <input
+                                id={`tag-${tag}`}
+                                name="tags"
+                                type="checkbox"
+                                onChange={(e) => handleTagChange(tag, e.target.checked)}
+                                className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                            />
+                        </div>
+                        <div className="ml-3 text-sm">
+                            <label htmlFor={`tag-${tag}`} className="font-medium text-slate-700">{tag}</label>
+                        </div>
+                    </div>
+                ))}
+                <div className="relative flex items-start">
+                    <div className="flex h-5 items-center">
+                        <input
+                            id="tag-other"
+                            name="tags-other"
+                            type="checkbox"
+                            onChange={(e) => handleCustomTagsCheck(e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                        />
+                    </div>
+                    <div className="ml-3 text-sm">
+                        <label htmlFor="tag-other" className="font-medium text-slate-700">Altro...</label>
+                    </div>
+                </div>
+            </div>
+            {showCustomTagsInput && (
+                <div className="mt-4">
+                    <label htmlFor="customTags" className="sr-only">Specifica altri tag</label>
+                    <input
+                        type="text"
+                        id="customTags"
+                        value={customTags}
+                        onChange={e => setCustomTags(e.target.value)}
+                        className="w-full px-4 py-2 border bg-white text-slate-800 border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
+                        placeholder="Aggiungi altri tag, separati da una virgola"
+                    />
+                </div>
+            )}
         </div>
         
         <div className="bg-slate-50 p-6 rounded-lg border border-slate-200">
@@ -194,7 +271,7 @@ const ReportForm: React.FC<ReportFormProps> = ({ onAddReport }) => {
                         id="customPromise"
                         value={customPromise}
                         onChange={e => setCustomPromise(e.target.value)}
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
+                        className="w-full px-4 py-2 border bg-white text-slate-800 border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
                         placeholder="Specifica quale promessa non è stata mantenuta"
                     />
                 </div>
@@ -227,7 +304,7 @@ const ReportForm: React.FC<ReportFormProps> = ({ onAddReport }) => {
                         id="authorName"
                         value={authorName}
                         onChange={(e) => setAuthorName(e.target.value)}
-                        className="w-full md:w-1/2 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
+                        className="w-full md:w-1/2 px-4 py-2 border bg-white text-slate-800 border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
                         placeholder="Mario Rossi"
                     />
                 </div>
@@ -239,20 +316,10 @@ const ReportForm: React.FC<ReportFormProps> = ({ onAddReport }) => {
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={isLoading}
             className="w-full sm:w-auto flex justify-center items-center space-x-3 px-8 py-3 bg-sky-600 text-white font-bold rounded-lg hover:bg-sky-700 disabled:bg-slate-400 transition-colors shadow-lg"
           >
-            {isLoading ? (
-              <>
-                <i className="fa-solid fa-spinner fa-spin"></i>
-                <span>Analisi in corso...</span>
-              </>
-            ) : (
-                <>
-                <i className="fa-solid fa-paper-plane"></i>
-                <span>Invia Segnalazione</span>
-                </>
-            )}
+            <i className="fa-solid fa-paper-plane"></i>
+            <span>Invia Segnalazione</span>
           </button>
         </div>
       </form>
