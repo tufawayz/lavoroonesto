@@ -10,8 +10,47 @@ import JobOfferForm from './components/JobOfferForm';
 import JobOfferReportDetail from './components/JobOfferReportDetail';
 import AdminLogin from './components/AdminLogin';
 import { ReportType } from './types';
-import { TOP_COMPANIES, SECTORS } from './constants';
 import ReportsListPage from './components/ReportsListPage';
+
+
+const TOP_COMPANIES: string[] = [
+    "Accenture", "Adecco", "Amazon", "Apple", "Armani", "Barilla", "Bending Spoons", "Capgemini",
+    "Coca-Cola", "Conad", "Coop", "Deloitte", "Diesel", "Enel", "Eni", "Esselunga", "EY (Ernst & Young)",
+    "Ferrari", "Ferrero", "Fiat (Stellantis)", "Generali", "Google", "Gucci", "H&M", "IKEA", "Intesa Sanpaolo",
+    "KPMG", "Lavazza", "Leonardo", "Lidl", "Luxottica", "Maire Tecnimont", "McDonald's", "Mediaset", "Microsoft",
+    "Nestlé", "Oracle", "Pirelli", "Poste Italiane", "Prada", "PwC", "Rai", "Randstad", "Ryanair", "Salesforce",
+    "Samsung", "SAP", "TIM", "UniCredit", "Unilever", "Vodafone", "Zara (Inditex)"
+];
+
+const SECTORS: string[] = [
+  "Vendita al dettaglio",
+  "Vendita all'ingrosso",
+  "E-commerce",
+  "Agenti di commercio",
+  "Ristoranti e bar",
+  "Hotel e alberghi",
+  "Catering e mense",
+  "Trasporti e spedizioni",
+  "Magazzino e stoccaggio",
+  "Corrieri espressi (Rider)",
+  "Servizi di pulizie",
+  "Assistenza anziani e badanti",
+  "Babysitter e colf",
+  "Sviluppo software",
+  "Consulenza IT",
+  "Assistenza tecnica",
+  "Costruzioni",
+  "Impiantistica",
+  "Manutenzione",
+  "Call Center Inbound",
+  "Call Center Outbound",
+  "Telemarketing",
+  "Agricoltura e Allevamento",
+  "Sanità e Assistenza",
+  "Marketing e Comunicazione",
+  "Manifatturiero",
+];
+
 
 const App: React.FC = () => {
   const [currentPath, setCurrentPath] = useState(window.location.hash || '#/');
@@ -142,10 +181,10 @@ const App: React.FC = () => {
         return;
     }
     try {
-        const response = await fetch('/api/delete-report', {
+        const response = await fetch('/api/gemini-proxy', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, adminPassword })
+            body: JSON.stringify({ action: 'deleteReport', id, adminPassword })
         });
         
         if (response.status === 401) {

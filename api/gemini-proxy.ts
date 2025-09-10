@@ -1,7 +1,71 @@
 import { createClient, VercelKV } from "@vercel/kv";
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import type { Report, ExperienceReport, JobOfferReport } from '../types';
-import { TOP_COMPANIES, SECTORS } from '../constants';
+
+// --- Inlined types.ts ---
+type Sector = string;
+
+enum ReportType {
+  Experience = 'EXPERIENCE',
+  JobOffer = 'JOB_OFFER',
+}
+
+interface BaseReport {
+  id: string;
+  companyName: string;
+  createdAt: Date;
+  supportCount: number;
+}
+
+interface ExperienceReport extends BaseReport {
+  type: ReportType.Experience;
+  title: string;
+  description: string;
+  sector: Sector;
+  isAnonymous: boolean;
+  authorName?: string;
+  tags: string[];
+  unkeptPromises?: string[];
+}
+
+interface JobOfferReport extends BaseReport {
+  type: ReportType.JobOffer;
+  jobTitle: string;
+  sector: Sector;
+  description: string;
+  fileDataUrl?: string;
+  fileName?: string;
+  offerLink?: string;
+  ralIndicated?: boolean;
+  ralAmount?: number;
+  tags: string[];
+}
+
+type Report = ExperienceReport | JobOfferReport;
+// --- End Inlined types.ts ---
+
+
+// --- Inlined constants.ts ---
+const SECTORS: string[] = [
+  "Vendita al dettaglio", "Vendita all'ingrosso", "E-commerce", "Agenti di commercio",
+  "Ristoranti e bar", "Hotel e alberghi", "Catering e mense",
+  "Trasporti e spedizioni", "Magazzino e stoccaggio", "Corrieri espressi (Rider)",
+  "Servizi di pulizie", "Assistenza anziani e badanti", "Babysitter e colf",
+  "Sviluppo software", "Consulenza IT", "Assistenza tecnica",
+  "Costruzioni", "Impiantistica", "Manutenzione",
+  "Call Center Inbound", "Call Center Outbound", "Telemarketing",
+  "Agricoltura e Allevamento", "Sanità e Assistenza", "Marketing e Comunicazione", "Manifatturiero",
+];
+
+const TOP_COMPANIES: string[] = [
+    "Accenture", "Adecco", "Amazon", "Apple", "Armani", "Barilla", "Bending Spoons", "Capgemini",
+    "Coca-Cola", "Conad", "Coop", "Deloitte", "Diesel", "Enel", "Eni", "Esselunga", "EY (Ernst & Young)",
+    "Ferrari", "Ferrero", "Fiat (Stellantis)", "Generali", "Google", "Gucci", "H&M", "IKEA", "Intesa Sanpaolo",
+    "KPMG", "Lavazza", "Leonardo", "Lidl", "Luxottica", "Maire Tecnimont", "McDonald's", "Mediaset", "Microsoft",
+    "Nestlé", "Oracle", "Pirelli", "Poste Italiane", "Prada", "PwC", "Rai", "Randstad", "Ryanair", "Salesforce",
+    "Samsung", "SAP", "TIM", "UniCredit", "Unilever", "Vodafone", "Zara (Inditex)"
+];
+// --- End Inlined constants.ts ---
+
 
 async function handleGetInitialData(kv: VercelKV, res: VercelResponse) {
     try {
@@ -67,6 +131,35 @@ async function handleSupportReport(kv: VercelKV, req: VercelRequest, res: Vercel
     }
 }
 
+async function handleDeleteReport(kv: VercelKV, req: VercelRequest, res: VercelResponse) {
+  try {
+    const { id, adminPassword } = req.body;
+
+    if (!id || !adminPassword) {
+      return res.status(400).json({ error: 'Missing report ID or admin password' });
+    }
+
+    const correctPassword = process.env.ADMIN_PASSWORD;
+
+    if (!correctPassword) {
+      console.error('ADMIN_PASSWORD environment variable is not set on Vercel.');
+      return res.status(500).json({ error: 'Server configuration error: Admin password not set.' });
+    }
+
+    if (adminPassword !== correctPassword) {
+      return res.status(401).json({ error: 'Unauthorized: Incorrect password' });
+    }
+
+    await kv.del(`report:${id}`);
+    
+    return res.status(200).json({ success: true });
+
+  } catch (error: any) {
+    console.error("Error in handleDeleteReport:", error);
+    return res.status(500).json({ error: 'Failed to delete report due to an unexpected server error.', details: error.message });
+  }
+}
+
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
@@ -91,6 +184,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return await handleAddReport(kv, req, res);
                 case 'supportReport':
                     return await handleSupportReport(kv, req, res);
+                case 'deleteReport':
+                    return await handleDeleteReport(kv, req, res);
                 default:
                     return res.status(400).json({ error: 'Invalid action' });
             }

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { EXPERIENCE_REPORT_TAGS } from '../constants';
 import { ExperienceReport, Sector, ReportType } from '../types';
 
 interface ReportFormProps {
@@ -7,6 +6,23 @@ interface ReportFormProps {
   companies: string[];
   sectors: string[];
 }
+
+const EXPERIENCE_REPORT_TAGS: string[] = [
+    "Mobbing",
+    "Bossing",
+    "Discriminazione",
+    "Molestie",
+    "Contratto non rispettato",
+    "Contratto irregolare",
+    "Lavoro in nero",
+    "Stipendio basso",
+    "Stipendio non pagato",
+    "Straordinari non pagati",
+    "Sicurezza sul lavoro",
+    "Orari di lavoro massacranti",
+    "Mancanza di formazione",
+    "Pressioni psicologiche",
+];
 
 const UNKEPT_PROMISE_OPTIONS = [
     "RAL inferiore a quanto pattuito",

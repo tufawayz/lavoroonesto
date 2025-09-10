@@ -1,7 +1,18 @@
 import React, { useState } from 'react';
 import { JobOfferReport, ReportType, Sector } from '../types';
 import { PaperClipIcon, LinkIcon } from './icons/IconComponents';
-import { JOB_OFFER_REPORT_TAGS } from '../constants';
+
+const JOB_OFFER_REPORT_TAGS: string[] = [
+    "RAL non specificata",
+    "Annuncio ingannevole",
+    "Partita IVA richiesta",
+    "Richieste sproporzionate",
+    "Stage non retribuito",
+    "Periodo di prova non retribuito",
+    "Linguaggio discriminatorio",
+    "Poca trasparenza",
+    "Processo di selezione poco serio",
+];
 
 
 interface JobOfferFormProps {
