@@ -1,9 +1,8 @@
-
 // /api/gemini-proxy.ts
 // Vercel Edge Function to securely proxy requests to the Google Gemini API and handle report data.
 import { GoogleGenAI } from "@google/genai";
 import { kv } from "@vercel/kv";
-import type { Report } from '../types';
+import type { Report, JobOfferReport } from '../types';
 import { SECTORS, TOP_COMPANIES } from "../constants";
 
 export const config = {
@@ -22,10 +21,16 @@ export default async function handler(request: Request) {
     return jsonResponse({ error: 'Method Not Allowed' }, 405);
   }
 
+  // --- Environment variable checks ---
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
     return jsonResponse({ error: 'API key not configured on the server.' }, 500);
   }
+  const kvUrl = process.env.KV_URL;
+  if (!kvUrl) {
+    return jsonResponse({ error: 'Database (KV) non è configurato correttamente sul server. Controllare le variabili d\'ambiente.' }, 500);
+  }
+  // --- End of checks ---
 
   const ai = new GoogleGenAI({ apiKey });
 
@@ -55,7 +60,9 @@ export default async function handler(request: Request) {
         if (reportKeys.length === 0) {
             return jsonResponse({ reports: [], companies: [], sectors: [] });
         }
-        const reports = await kv.mget(...reportKeys);
+        const reportsWithNulls = await kv.mget(...reportKeys);
+        const reports = reportsWithNulls.filter(r => r !== null); // Filter out potential nulls
+
         const companies = await kv.smembers('companies');
         const sectors = await kv.smembers('sectors');
         return jsonResponse({ reports, companies, sectors });
@@ -63,10 +70,16 @@ export default async function handler(request: Request) {
 
       case 'addReport': {
         const { report } : { report: Report } = payload;
-        
-        // Ensure createdAt is a valid date string before storing
-        report.createdAt = new Date(report.createdAt);
 
+        // Server-side validation for file size to protect the database
+        if (report.type === 'JOB_OFFER' && (report as JobOfferReport).fileDataUrl) {
+            // Vercel KV Hobby plan has a 1MB limit. Base64 is ~33% larger than binary.
+            // Check the length of the data URL string. 1MB = 1024 * 1024 bytes/chars.
+            if ((report as JobOfferReport).fileDataUrl!.length > 1024 * 1024) {
+                return jsonResponse({ error: "File allegato troppo grande. Il limite massimo è di circa 750KB." }, 413); // 413 Payload Too Large
+            }
+        }
+        
         await kv.set(`report:${report.id}`, report);
 
         // Add company to set of companies if not a default one

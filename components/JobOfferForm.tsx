@@ -5,7 +5,7 @@ import { JOB_OFFER_REPORT_TAGS } from '../constants';
 
 
 interface JobOfferFormProps {
-  onAddReport: (report: JobOfferReport) => void;
+  onAddReport: (report: JobOfferReport) => Promise<void>;
   companies: string[];
   sectors: string[];
 }
@@ -25,12 +25,13 @@ const JobOfferForm: React.FC<JobOfferFormProps> = ({ onAddReport, companies, sec
   const [customTags, setCustomTags] = useState('');
   const [showCustomTagsInput, setShowCustomTagsInput] = useState(false);
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        setError("Il file è troppo grande. Limite massimo: 5MB.");
+      if (file.size > 750 * 1024) { // 750KB limit
+        setError("Il file è troppo grande. Limite massimo: 750KB.");
         return;
       }
       setFileName(file.name);
@@ -63,6 +64,7 @@ const JobOfferForm: React.FC<JobOfferFormProps> = ({ onAddReport, companies, sec
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
 
     const finalSector = sector === 'Altro...' ? customSector.trim() : sector;
 
@@ -79,6 +81,7 @@ const JobOfferForm: React.FC<JobOfferFormProps> = ({ onAddReport, companies, sec
         return;
     }
 
+    setIsSubmitting(true);
     setError('');
     
     const customTagsArray = customTags.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
@@ -100,8 +103,14 @@ const JobOfferForm: React.FC<JobOfferFormProps> = ({ onAddReport, companies, sec
         fileName: fileName || undefined,
         tags: finalTags
     };
-
-    onAddReport(newReport);
+    
+    try {
+        await onAddReport(newReport);
+    } catch (err) {
+        // L'errore viene già mostrato da un alert in App.tsx
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   return (
@@ -305,7 +314,7 @@ const JobOfferForm: React.FC<JobOfferFormProps> = ({ onAddReport, companies, sec
                     {fileName ? (
                         <p className="text-sm text-emerald-600 font-semibold">{fileName}</p>
                     ) : (
-                        <p className="text-xs text-slate-500">PNG, JPG, PDF fino a 5MB</p>
+                        <p className="text-xs text-slate-500">PNG, JPG, PDF fino a 750KB</p>
                     )}
                 </div>
             </div>
@@ -316,10 +325,20 @@ const JobOfferForm: React.FC<JobOfferFormProps> = ({ onAddReport, companies, sec
         <div className="pt-2">
           <button
             type="submit"
+            disabled={isSubmitting}
             className="w-full flex justify-center items-center space-x-3 px-8 py-3 bg-sky-600 text-white font-bold rounded-lg hover:bg-sky-700 disabled:bg-slate-400 transition-colors shadow-lg"
           >
-            <i className="fa-solid fa-paper-plane"></i>
-            <span>Invia Segnalazione Offerta</span>
+            {isSubmitting ? (
+                <>
+                    <i className="fa-solid fa-spinner fa-spin"></i>
+                    <span>Invio in corso...</span>
+                </>
+            ) : (
+                <>
+                    <i className="fa-solid fa-paper-plane"></i>
+                    <span>Invia Segnalazione Offerta</span>
+                </>
+            )}
           </button>
         </div>
       </form>

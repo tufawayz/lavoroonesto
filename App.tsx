@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -92,19 +91,40 @@ const App: React.FC = () => {
 
 
   const handleAddReport = async (newReport: ExperienceReport | JobOfferReport) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
     try {
         const response = await fetch(API_ENDPOINT, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'addReport', payload: { report: newReport } })
+            body: JSON.stringify({ action: 'addReport', payload: { report: newReport } }),
+            signal: controller.signal
         });
-        if (!response.ok) throw new Error('Failed to save the report.');
+        
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Il server ha restituito un errore non valido.' }));
+            throw new Error(errorData.error || `Il server ha risposto con stato ${response.status}.`);
+        }
         
         await fetchInitialData(); // Refresh all data
         window.location.hash = '#/';
-    } catch (err) {
+    } catch (err: any) {
+        clearTimeout(timeoutId);
         console.error("Error adding report:", err);
-        alert("Impossibile salvare la segnalazione. Riprova più tardi.");
+        
+        let alertMessage = 'Impossibile salvare la segnalazione. Riprova più tardi.';
+        
+        if (err.name === 'AbortError') {
+             alertMessage = 'Il server non ha risposto in tempo. Questo può essere un problema temporaneo di rete o un errore di configurazione del backend. Riprova tra poco.';
+        } else if (err.message) {
+            alertMessage += `\n\nDettagli: ${err.message}`;
+        }
+
+        alert(alertMessage);
+        throw err; // Re-throw the error so the form component can handle its state
     }
   };
 

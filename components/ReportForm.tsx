@@ -3,7 +3,7 @@ import { EXPERIENCE_REPORT_TAGS } from '../constants';
 import { ExperienceReport, Sector, ReportType } from '../types';
 
 interface ReportFormProps {
-  onAddReport: (report: ExperienceReport) => void;
+  onAddReport: (report: ExperienceReport) => Promise<void>;
   companies: string[];
   sectors: string[];
 }
@@ -33,6 +33,7 @@ const ReportForm: React.FC<ReportFormProps> = ({ onAddReport, companies, sectors
   const [customTags, setCustomTags] = useState('');
   const [showCustomTagsInput, setShowCustomTagsInput] = useState(false);
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const handlePromiseChange = (promise: string, isChecked: boolean) => {
     if (isChecked) {
@@ -66,6 +67,7 @@ const ReportForm: React.FC<ReportFormProps> = ({ onAddReport, companies, sectors
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     
     const finalSector = sector === 'Altro...' ? customSector.trim() : sector;
 
@@ -73,6 +75,8 @@ const ReportForm: React.FC<ReportFormProps> = ({ onAddReport, companies, sectors
       setError('Tutti i campi contrassegnati con * sono obbligatori.');
       return;
     }
+    
+    setIsSubmitting(true);
     setError('');
 
     const finalPromises = [...unkeptPromises];
@@ -98,7 +102,14 @@ const ReportForm: React.FC<ReportFormProps> = ({ onAddReport, companies, sectors
       unkeptPromises: finalPromises.length > 0 ? finalPromises : undefined,
     };
 
-    onAddReport(newReport);
+    try {
+        await onAddReport(newReport);
+    } catch (err) {
+        // L'errore viene già mostrato da un alert in App.tsx
+        // Il blocco `finally` gestirà lo stato di `isSubmitting`
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   return (
@@ -316,10 +327,20 @@ const ReportForm: React.FC<ReportFormProps> = ({ onAddReport, companies, sectors
         <div className="flex justify-end">
           <button
             type="submit"
+            disabled={isSubmitting}
             className="w-full sm:w-auto flex justify-center items-center space-x-3 px-8 py-3 bg-sky-600 text-white font-bold rounded-lg hover:bg-sky-700 disabled:bg-slate-400 transition-colors shadow-lg"
           >
-            <i className="fa-solid fa-paper-plane"></i>
-            <span>Invia Segnalazione</span>
+            {isSubmitting ? (
+                <>
+                    <i className="fa-solid fa-spinner fa-spin"></i>
+                    <span>Invio in corso...</span>
+                </>
+            ) : (
+                <>
+                    <i className="fa-solid fa-paper-plane"></i>
+                    <span>Invia Segnalazione</span>
+                </>
+            )}
           </button>
         </div>
       </form>
