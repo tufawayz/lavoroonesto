@@ -11,8 +11,7 @@ import JobOfferReportDetail from './components/JobOfferReportDetail';
 import AdminLogin from './components/AdminLogin';
 import { ReportType } from './types';
 import { TOP_COMPANIES, SECTORS } from './constants';
-
-const API_ENDPOINT = '/api/gemini-proxy';
+import ReportsListPage from './components/ReportsListPage';
 
 const App: React.FC = () => {
   const [currentPath, setCurrentPath] = useState(window.location.hash || '#/');
@@ -39,29 +38,24 @@ const App: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(API_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'getInitialData' })
-      });
-      if (!response.ok) throw new Error('Failed to fetch data from server.');
-      const data = await response.json();
-      
-      const parsedReports = data.reports.map((report: any) => ({
-          ...report,
-          createdAt: new Date(report.createdAt)
-      }));
+        const response = await fetch('/api/gemini-proxy');
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response from server.' }));
+            throw new Error(errorData.error || 'Failed to fetch data from server.');
+        }
+        const data = await response.json();
 
-      setReports(parsedReports);
-
-      const initialCompanies = new Set([...TOP_COMPANIES, ...data.companies]);
-      setCompanies(Array.from(initialCompanies).sort());
-
-      const allSectors = new Set([...SECTORS, ...data.sectors]);
-      setCustomSectors(data.sectors.sort());
+        const parsedReports = data.reports.map((report: Report) => ({
+            ...report,
+            createdAt: new Date(report.createdAt)
+        }));
+        
+        setReports(parsedReports);
+        setCompanies(Array.from(new Set([...TOP_COMPANIES, ...data.companies])).sort());
+        setCustomSectors(data.customSectors.sort());
 
     } catch (err: any) {
-      setError(err.message || 'An unknown error occurred.');
+      setError(err.message || 'Impossibile caricare i dati dal database. Potrebbe essere un problema di configurazione.');
       console.error("Error fetching initial data:", err);
     } finally {
       setIsLoading(false);
@@ -90,62 +84,50 @@ const App: React.FC = () => {
   }, [supportedReports]);
 
 
+  // FIX: Refactored to send new report data to a server-side API endpoint.
   const handleAddReport = async (newReport: ExperienceReport | JobOfferReport) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-
     try {
-        const response = await fetch(API_ENDPOINT, {
+        const response = await fetch('/api/gemini-proxy', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'addReport', payload: { report: newReport } }),
-            signal: controller.signal
+            body: JSON.stringify({ action: 'addReport', report: newReport })
         });
         
-        clearTimeout(timeoutId);
-
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Il server ha restituito un errore non valido.' }));
-            throw new Error(errorData.error || `Il server ha risposto con stato ${response.status}.`);
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Failed to add report.');
         }
         
-        await fetchInitialData(); // Refresh all data
-        window.location.hash = '#/';
+        await fetchInitialData();
+        window.location.hash = '#/segnalazioni';
     } catch (err: any) {
-        clearTimeout(timeoutId);
         console.error("Error adding report:", err);
-        
-        let alertMessage = 'Impossibile salvare la segnalazione. Riprova più tardi.';
-        
-        if (err.name === 'AbortError') {
-             alertMessage = 'Il server non ha risposto in tempo. Questo può essere un problema temporaneo di rete o un errore di configurazione del backend. Riprova tra poco.';
-        } else if (err.message) {
-            alertMessage += `\n\nDettagli: ${err.message}`;
-        }
-
-        alert(alertMessage);
-        throw err; // Re-throw the error so the form component can handle its state
+        alert(`Impossibile salvare la segnalazione.\n\nDettagli: ${err.message}`);
+        throw err;
     }
   };
 
+  // FIX: Refactored to send support action to a server-side API endpoint.
   const handleSupport = async (id: string) => {
     if (supportedReports.includes(id)) return;
 
-    // Optimistic UI update
     setReports(prev =>
       prev.map(r => r.id === id ? { ...r, supportCount: r.supportCount + 1 } : r)
     );
     setSupportedReports(prev => [...prev, id]);
 
     try {
-        await fetch(API_ENDPOINT, {
+        const response = await fetch('/api/gemini-proxy', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'supportReport', payload: { id } })
+            body: JSON.stringify({ action: 'supportReport', id })
         });
+
+        if (!response.ok) {
+            throw new Error('Server returned an error while supporting report.');
+        }
     } catch (err) {
         console.error("Error supporting report:", err);
-        // Revert UI on failure
         setReports(prev =>
             prev.map(r => r.id === id ? { ...r, supportCount: r.supportCount - 1 } : r)
         );
@@ -160,10 +142,10 @@ const App: React.FC = () => {
         return;
     }
     try {
-        const response = await fetch(API_ENDPOINT, {
+        const response = await fetch('/api/delete-report', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'deleteReport', payload: { id, adminPassword } })
+            body: JSON.stringify({ id, adminPassword })
         });
         
         if (response.status === 401) {
@@ -174,18 +156,21 @@ const App: React.FC = () => {
              return;
         }
 
-        if (!response.ok) throw new Error('Failed to delete the report.');
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to delete the report.');
+        }
         
         setReports(prev => prev.filter(r => r.id !== id));
 
         const pathParts = currentPath.slice(1).split('/').filter(p => p);
         if (pathParts[0] === 'report' && pathParts[1] === id) {
-          window.location.hash = '#/';
+          window.location.hash = '#/segnalazioni';
         }
 
-    } catch (err) {
+    } catch (err: any) {
         console.error("Error deleting report:", err);
-        alert("Impossibile eliminare la segnalazione. Riprova più tardi.");
+        alert(`Impossibile eliminare la segnalazione.\n\nDettagli: ${err.message}`);
     }
   };
 
@@ -196,7 +181,7 @@ const App: React.FC = () => {
   };
   
   const renderContent = () => {
-    const allSectors = [...SECTORS, ...customSectors].sort();
+    const allSectors = Array.from(new Set([...SECTORS, ...customSectors])).sort();
 
     const pathParts = currentPath.slice(1).split('/').filter(p => p);
     const view = pathParts[0] || 'dashboard';
@@ -204,7 +189,9 @@ const App: React.FC = () => {
 
     switch (view) {
       case 'dashboard':
-        return <Dashboard 
+        return <Dashboard />;
+      case 'segnalazioni':
+        return <ReportsListPage
                   reports={reports} 
                   onSupport={handleSupport}
                   companies={companies}
@@ -233,9 +220,8 @@ const App: React.FC = () => {
       case 'report':
         const report = reports.find(r => r.id === param);
         if (!report) {
-            // If still loading, it might appear later
             if (isLoading) return null;
-            window.location.hash = '#/';
+            window.location.hash = '#/segnalazioni';
             return null;
         }
         const isSupported = supportedReports.includes(report.id);

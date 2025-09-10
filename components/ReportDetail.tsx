@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+
+import React from 'react';
 import type { ExperienceReport } from '../types';
-import { generateBoycottAdvice } from '../services/geminiService';
 import { BuildingIcon, HandshakeIcon, TagIcon } from './icons/IconComponents';
 
 interface ReportDetailProps {
@@ -13,19 +13,6 @@ interface ReportDetailProps {
 }
 
 const ReportDetail: React.FC<ReportDetailProps> = ({ report, onSupport, isSupported, isAdmin, onDelete }) => {
-  const [advice, setAdvice] = useState<string>('');
-  const [isLoadingAdvice, setIsLoadingAdvice] = useState<boolean>(true);
-
-  useEffect(() => {
-    const fetchAdvice = async () => {
-      setIsLoadingAdvice(true);
-      const generatedAdvice = await generateBoycottAdvice(report);
-      setAdvice(generatedAdvice);
-      setIsLoadingAdvice(false);
-    };
-
-    fetchAdvice();
-  }, [report]);
   
   const handleDelete = () => {
     if (onDelete && window.confirm('Sei sicuro di voler eliminare questa segnalazione? L\'azione è irreversibile.')) {
@@ -101,21 +88,6 @@ const ReportDetail: React.FC<ReportDetailProps> = ({ report, onSupport, isSuppor
                     ))}
                 </ul>
             </div>
-        )}
-      </div>
-      
-      <div className="bg-emerald-50 p-6 sm:p-8 border-t border-emerald-200">
-        <h3 className="text-2xl font-bold text-emerald-900 flex items-center">
-            <i className="fa-solid fa-bullhorn mr-3"></i>
-            <span>Come Agire</span>
-        </h3>
-        {isLoadingAdvice ? (
-             <div className="mt-4 flex items-center space-x-3 text-slate-600">
-                <i className="fa-solid fa-spinner fa-spin"></i>
-                <span>L'intelligenza artificiale sta generando dei suggerimenti...</span>
-             </div>
-        ) : (
-            <div className="mt-4 prose prose-sm max-w-none text-emerald-800" dangerouslySetInnerHTML={{ __html: advice.replace(/\n/g, '<br />') }}></div>
         )}
       </div>
 

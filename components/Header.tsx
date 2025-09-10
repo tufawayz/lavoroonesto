@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 const Header: React.FC = () => {
@@ -29,6 +28,13 @@ const Header: React.FC = () => {
               className="px-3 py-2 text-sm font-medium text-slate-600 hover:text-sky-600 transition-colors"
             >
               Home
+            </a>
+            <a
+              href="#/segnalazioni"
+              onClick={(e) => handleNav(e, '#/segnalazioni')}
+              className="px-3 py-2 text-sm font-medium text-slate-600 hover:text-sky-600 transition-colors"
+            >
+              Segnalazioni
             </a>
              <a
               href="#/segnala"

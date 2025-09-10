@@ -1,134 +1,104 @@
-// /api/gemini-proxy.ts
-// Vercel Edge Function to securely proxy requests to the Google Gemini API and handle report data.
-import { GoogleGenAI } from "@google/genai";
-import { kv } from "@vercel/kv";
-import type { Report, JobOfferReport } from '../types';
-import { SECTORS, TOP_COMPANIES } from "../constants";
+import { createClient, VercelKV } from "@vercel/kv";
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { Report, ExperienceReport, JobOfferReport } from '../types';
+import { TOP_COMPANIES, SECTORS } from '../constants';
 
-export const config = {
-  runtime: 'edge', // Use the modern Edge runtime
-};
+async function handleGetInitialData(kv: VercelKV, res: VercelResponse) {
+    try {
+        const reportKeys = await kv.keys('report:*');
+        const reportsData = reportKeys.length > 0 ? (await kv.mget<Report[]>(...reportKeys)).filter(Boolean) as Report[] : [];
 
-async function jsonResponse(data: any, status: number = 200) {
-    return new Response(JSON.stringify(data), {
-        status,
-        headers: { 'Content-Type': 'application/json' },
-    });
+        const parsedReports = reportsData.map(report => ({
+            ...report,
+            createdAt: new Date(report.createdAt)
+        }));
+        
+        const customCompanies = await kv.smembers('companies');
+        const customSectorsFromDB = await kv.smembers('sectors');
+
+        const companies = Array.from(new Set([...TOP_COMPANIES, ...customCompanies])).sort();
+        const customSectors = customSectorsFromDB.sort();
+
+        return res.status(200).json({ reports: parsedReports, companies, customSectors });
+    } catch (error) {
+        console.error("Error in handleGetInitialData:", error);
+        return res.status(500).json({ error: "Failed to fetch initial data." });
+    }
 }
 
-export default async function handler(request: Request) {
-  if (request.method !== 'POST') {
-    return jsonResponse({ error: 'Method Not Allowed' }, 405);
-  }
-
-  // --- Environment variable checks ---
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    return jsonResponse({ error: 'API key not configured on the server.' }, 500);
-  }
-  const kvUrl = process.env.KV_URL;
-  if (!kvUrl) {
-    return jsonResponse({ error: 'Database (KV) non è configurato correttamente sul server. Controllare le variabili d\'ambiente.' }, 500);
-  }
-  // --- End of checks ---
-
-  const ai = new GoogleGenAI({ apiKey });
-
-  try {
-    const { action, payload } = await request.json();
-
-    switch (action) {
-      case 'advice': {
-        const report = payload.report;
-        const prompt = `Un utente ha segnalato l'azienda "${report.companyName}" nel settore "${report.sector}" per le seguenti ragioni: ${report.title}. La sua descrizione del problema è: "${report.description}". 
-        Basandoti su questo, fornisci suggerimenti costruttivi e pratici su come i consumatori, altri lavoratori e la community possono agire. 
-        Struttura la risposta in Markdown. Includi:
-        - Un paragrafo su come diffondere consapevolezza in modo efficace.
-        - Suggerimenti per trovare alternative etiche all'azienda (se applicabile).
-        - Modi concreti per sostenere i lavoratori attuali o passati.
-        Evita un linguaggio aggressivo. Sii propositivo e focalizzati su azioni realizzabili.`;
-        
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-        });
-        return jsonResponse({ text: response.text });
-      }
-
-      case 'getInitialData': {
-        const reportKeys = await kv.keys('report:*');
-        if (reportKeys.length === 0) {
-            return jsonResponse({ reports: [], companies: [], sectors: [] });
+async function handleAddReport(kv: VercelKV, req: VercelRequest, res: VercelResponse) {
+    try {
+        const newReport: ExperienceReport | JobOfferReport = req.body.report;
+        if (!newReport || !newReport.id) {
+            return res.status(400).json({ error: 'Invalid report data' });
         }
-        const reportsWithNulls = await kv.mget(...reportKeys);
-        const reports = reportsWithNulls.filter(r => r !== null); // Filter out potential nulls
+        await kv.set(`report:${newReport.id}`, newReport);
 
-        const companies = await kv.smembers('companies');
-        const sectors = await kv.smembers('sectors');
-        return jsonResponse({ reports, companies, sectors });
-      }
+        if (!TOP_COMPANIES.includes(newReport.companyName)) {
+            await kv.sadd('companies', newReport.companyName);
+        }
+        if (!SECTORS.includes(newReport.sector)) {
+            await kv.sadd('sectors', newReport.sector);
+        }
+        return res.status(200).json({ success: true });
+    } catch (error) {
+        console.error("Error in handleAddReport:", error);
+        return res.status(500).json({ error: "Failed to add report." });
+    }
+}
 
-      case 'addReport': {
-        const { report } : { report: Report } = payload;
+async function handleSupportReport(kv: VercelKV, req: VercelRequest, res: VercelResponse) {
+    try {
+        const { id } = req.body;
+        if (!id) {
+            return res.status(400).json({ error: 'Missing report ID' });
+        }
+        const report = await kv.get<Report>(`report:${id}`);
+        if(report) {
+            report.supportCount += 1;
+            await kv.set(`report:${id}`, report);
+            return res.status(200).json({ success: true, supportCount: report.supportCount });
+        } else {
+            return res.status(404).json({ error: 'Report not found' });
+        }
+    } catch (error) {
+        console.error("Error in handleSupportReport:", error);
+        return res.status(500).json({ error: "Failed to support report." });
+    }
+}
 
-        // Server-side validation for file size to protect the database
-        if (report.type === 'JOB_OFFER' && (report as JobOfferReport).fileDataUrl) {
-            // Vercel KV Hobby plan has a 1MB limit. Base64 is ~33% larger than binary.
-            // Check the length of the data URL string. 1MB = 1024 * 1024 bytes/chars.
-            if ((report as JobOfferReport).fileDataUrl!.length > 1024 * 1024) {
-                return jsonResponse({ error: "File allegato troppo grande. Il limite massimo è di circa 750KB." }, 413); // 413 Payload Too Large
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+    try {
+        if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+            console.error('Database environment variables are not set.');
+            return res.status(500).json({ error: 'Server configuration error: Database credentials are not set.' });
+        }
+
+        const kv = createClient({
+          url: process.env.KV_REST_API_URL!,
+          token: process.env.KV_REST_API_TOKEN!,
+        });
+        
+        if (req.method === 'GET') {
+            return await handleGetInitialData(kv, res);
+        }
+        
+        if (req.method === 'POST') {
+            const { action } = req.body;
+            switch (action) {
+                case 'addReport':
+                    return await handleAddReport(kv, req, res);
+                case 'supportReport':
+                    return await handleSupportReport(kv, req, res);
+                default:
+                    return res.status(400).json({ error: 'Invalid action' });
             }
         }
         
-        await kv.set(`report:${report.id}`, report);
-
-        // Add company to set of companies if not a default one
-        if (!TOP_COMPANIES.includes(report.companyName)) {
-           await kv.sadd('companies', report.companyName);
-        }
-
-        // Add sector to set of sectors if not a default one
-        if (!SECTORS.includes(report.sector)) {
-            await kv.sadd('sectors', report.sector);
-        }
-        
-        return jsonResponse({ success: true, id: report.id });
-      }
-
-      case 'supportReport': {
-        const { id } = payload;
-        const reportKey = `report:${id}`;
-        const report: Report | null = await kv.get(reportKey);
-        
-        if (!report) {
-            return jsonResponse({ error: 'Report not found' }, 404);
-        }
-
-        report.supportCount += 1;
-        await kv.set(reportKey, report);
-        
-        return jsonResponse({ success: true, supportCount: report.supportCount });
-      }
-
-      case 'deleteReport': {
-        const { id, adminPassword } = payload;
-        const correctPassword = process.env.ADMIN_PASSWORD;
-
-        if (!correctPassword || adminPassword !== correctPassword) {
-            return jsonResponse({ error: 'Unauthorized' }, 401);
-        }
-
-        await kv.del(`report:${id}`);
-        return jsonResponse({ success: true });
-      }
-
-      default:
-        return jsonResponse({ error: `Invalid action: ${action}` }, 400);
+        return res.status(405).json({ error: 'Method Not Allowed' });
+    } catch (error: any) {
+        console.error('Unhandled error in handler:', error);
+        return res.status(500).json({ error: 'An unexpected server error occurred.', details: error.message });
     }
-
-  } catch (error: any) {
-    console.error("API Error:", error);
-    const errorMessage = error.message || 'An internal server error occurred.';
-    return jsonResponse({ error: errorMessage, details: error.toString() }, 500);
-  }
 }
