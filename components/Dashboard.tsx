@@ -10,14 +10,18 @@ interface DashboardProps {
   companies: string[];
   supportedReports: string[];
   allSectors: string[];
+  isLoading: boolean;
+  error: string | null;
+  isAdmin?: boolean;
+  onDelete?: (id: string) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ reports, onSupport, companies, supportedReports, allSectors }) => {
+const Dashboard: React.FC<DashboardProps> = ({ reports, onSupport, companies, supportedReports, allSectors, isLoading, error, isAdmin, onDelete }) => {
   const [companyFilter, setCompanyFilter] = useState('');
   const [sectorFilter, setSectorFilter] = useState('');
 
   const filteredReports = useMemo(() => {
-    const sortedReports = [...reports].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    const sortedReports = [...reports].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return sortedReports.filter(report => {
         const companyMatch = companyFilter 
@@ -36,6 +40,29 @@ const Dashboard: React.FC<DashboardProps> = ({ reports, onSupport, companies, su
     e.preventDefault();
     window.location.hash = path;
   };
+
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="text-center py-16">
+          <i className="fa-solid fa-spinner fa-spin text-4xl text-sky-600"></i>
+          <p className="mt-4 text-slate-600">Caricamento segnalazioni...</p>
+        </div>
+      );
+    }
+
+    if (error) {
+       return (
+        <div className="text-center py-16 px-6 bg-red-50 rounded-lg shadow-md border border-red-200">
+            <i className="fa-solid fa-circle-exclamation text-6xl text-red-400 mb-4"></i>
+            <h3 className="text-2xl font-bold text-red-800">Oops! Qualcosa è andato storto.</h3>
+            <p className="text-red-600 mt-2">{error}</p>
+        </div>
+      );
+    }
+    
+    return <ReportList reports={filteredReports} onSupport={onSupport} supportedReports={supportedReports} isAdmin={isAdmin} onDelete={onDelete} />;
+  }
 
   return (
     <div className="space-y-12">
@@ -101,7 +128,7 @@ const Dashboard: React.FC<DashboardProps> = ({ reports, onSupport, companies, su
                 </div>
             </div>
         </div>
-        <ReportList reports={filteredReports} onSupport={onSupport} supportedReports={supportedReports} />
+        {renderContent()}
       </div>
     </div>
   );

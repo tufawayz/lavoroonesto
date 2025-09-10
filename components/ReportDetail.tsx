@@ -8,9 +8,11 @@ interface ReportDetailProps {
   report: ExperienceReport;
   onSupport: (id: string) => void;
   isSupported: boolean;
+  isAdmin?: boolean;
+  onDelete?: (id: string) => void;
 }
 
-const ReportDetail: React.FC<ReportDetailProps> = ({ report, onSupport, isSupported }) => {
+const ReportDetail: React.FC<ReportDetailProps> = ({ report, onSupport, isSupported, isAdmin, onDelete }) => {
   const [advice, setAdvice] = useState<string>('');
   const [isLoadingAdvice, setIsLoadingAdvice] = useState<boolean>(true);
 
@@ -24,6 +26,12 @@ const ReportDetail: React.FC<ReportDetailProps> = ({ report, onSupport, isSuppor
 
     fetchAdvice();
   }, [report]);
+  
+  const handleDelete = () => {
+    if (onDelete && window.confirm('Sei sicuro di voler eliminare questa segnalazione? L\'azione è irreversibile.')) {
+        onDelete(report.id);
+    }
+  };
 
   const handleNav = (e: React.MouseEvent<HTMLAnchorElement>, path: string) => {
     e.preventDefault();
@@ -33,10 +41,22 @@ const ReportDetail: React.FC<ReportDetailProps> = ({ report, onSupport, isSuppor
   return (
     <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
       <div className="p-6 sm:p-8">
-        <a href="#/" onClick={(e) => handleNav(e, '#/')} className="mb-6 text-sm font-medium text-sky-600 hover:text-sky-800 flex items-center space-x-2">
-            <i className="fa-solid fa-arrow-left"></i>
-            <span>Torna a tutte le segnalazioni</span>
-        </a>
+        <div className="flex justify-between items-center mb-6">
+            <a href="#/" onClick={(e) => handleNav(e, '#/')} className="text-sm font-medium text-sky-600 hover:text-sky-800 flex items-center space-x-2">
+                <i className="fa-solid fa-arrow-left"></i>
+                <span>Torna a tutte le segnalazioni</span>
+            </a>
+            {isAdmin && onDelete && (
+                <button 
+                    onClick={handleDelete}
+                    className="bg-red-100 text-red-600 hover:bg-red-600 hover:text-white rounded-lg px-3 py-2 flex items-center space-x-2 transition-colors text-sm font-semibold"
+                    aria-label="Elimina segnalazione"
+                >
+                    <i className="fa-solid fa-trash-can"></i>
+                    <span>Elimina</span>
+                </button>
+            )}
+        </div>
 
         <span className="text-xs font-semibold text-sky-600 bg-sky-100 px-2 py-1 rounded-full">{report.sector}</span>
         

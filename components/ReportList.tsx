@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Report, ReportType } from '../types';
 import ReportCard from './ReportCard';
@@ -8,9 +9,11 @@ interface ReportListProps {
   reports: Report[];
   onSupport: (id: string) => void;
   supportedReports: string[];
+  isAdmin?: boolean;
+  onDelete?: (id: string) => void;
 }
 
-const ReportList: React.FC<ReportListProps> = ({ reports, onSupport, supportedReports }) => {
+const ReportList: React.FC<ReportListProps> = ({ reports, onSupport, supportedReports, isAdmin, onDelete }) => {
   if (reports.length === 0) {
     return (
       <div className="text-center py-16 px-6 bg-white rounded-lg shadow-md">
@@ -26,10 +29,10 @@ const ReportList: React.FC<ReportListProps> = ({ reports, onSupport, supportedRe
       {reports.map((report) => {
         const isSupported = supportedReports.includes(report.id);
         if (report.type === ReportType.Experience) {
-          return <ReportCard key={report.id} report={report} onSupport={onSupport} isSupported={isSupported} />
+          return <ReportCard key={report.id} report={report} onSupport={onSupport} isSupported={isSupported} isAdmin={isAdmin} onDelete={onDelete} />
         }
         if (report.type === ReportType.JobOffer) {
-          return <JobOfferReportCard key={report.id} report={report} onSupport={onSupport} isSupported={isSupported} />
+          return <JobOfferReportCard key={report.id} report={report} onSupport={onSupport} isSupported={isSupported} isAdmin={isAdmin} onDelete={onDelete} />
         }
         return null;
       })}

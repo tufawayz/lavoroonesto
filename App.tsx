@@ -1,5 +1,5 @@
-// FIX: Corrected typo in React import to properly import hooks.
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import ReportForm from './components/ReportForm';
@@ -9,47 +9,22 @@ import ReportDetail from './components/ReportDetail';
 import AddReportChoice from './components/AddReportChoice';
 import JobOfferForm from './components/JobOfferForm';
 import JobOfferReportDetail from './components/JobOfferReportDetail';
+import AdminLogin from './components/AdminLogin';
 import { ReportType } from './types';
 import { TOP_COMPANIES, SECTORS } from './constants';
 
+const API_ENDPOINT = '/api/gemini-proxy';
+
 const App: React.FC = () => {
   const [currentPath, setCurrentPath] = useState(window.location.hash || '#/');
-  
-  const [reports, setReports] = useState<Report[]>(() => {
-    try {
-      const savedReports = localStorage.getItem('lavoroOnestoReports');
-      if (savedReports) {
-        return JSON.parse(savedReports).map((report: Report) => ({
-          ...report,
-          createdAt: new Date(report.createdAt),
-        }));
-      }
-    } catch (error) {
-      console.error("Error loading reports from localStorage:", error);
-    }
-    return [];
-  });
+  const [reports, setReports] = useState<Report[]>([]);
+  const [companies, setCompanies] = useState<string[]>([...TOP_COMPANIES]);
+  const [customSectors, setCustomSectors] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [companies, setCompanies] = useState<string[]>(() => {
-    try {
-      const savedCompanies = localStorage.getItem('lavoroOnestoCompanies');
-      const initialCompanies = new Set([...TOP_COMPANIES, ...(savedCompanies ? JSON.parse(savedCompanies) : [])]);
-      return Array.from(initialCompanies);
-    } catch (error) {
-      console.error("Error loading companies from localStorage:", error);
-      return [...TOP_COMPANIES];
-    }
-  });
-
-  const [customSectors, setCustomSectors] = useState<string[]>(() => {
-    try {
-        const savedSectors = localStorage.getItem('lavoroOnestoCustomSectors');
-        return savedSectors ? JSON.parse(savedSectors) : [];
-    } catch (error) {
-        console.error("Error loading custom sectors from localStorage:", error);
-        return [];
-    }
-  });
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
 
   const [supportedReports, setSupportedReports] = useState<string[]>(() => {
     try {
@@ -60,46 +35,53 @@ const App: React.FC = () => {
         return [];
     }
   });
+  
+  const fetchInitialData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(API_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getInitialData' })
+      });
+      if (!response.ok) throw new Error('Failed to fetch data from server.');
+      const data = await response.json();
+      
+      const parsedReports = data.reports.map((report: any) => ({
+          ...report,
+          createdAt: new Date(report.createdAt)
+      }));
 
+      setReports(parsedReports);
+
+      const initialCompanies = new Set([...TOP_COMPANIES, ...data.companies]);
+      setCompanies(Array.from(initialCompanies).sort());
+
+      const allSectors = new Set([...SECTORS, ...data.sectors]);
+      setCustomSectors(data.sectors.sort());
+
+    } catch (err: any) {
+      setError(err.message || 'An unknown error occurred.');
+      console.error("Error fetching initial data:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchInitialData();
+  }, [fetchInitialData]);
 
   useEffect(() => {
     const handleHashChange = () => {
       setCurrentPath(window.location.hash || '#/');
       window.scrollTo(0, 0);
     };
-
     window.addEventListener('hashchange', handleHashChange);
-    return () => {
-      window.removeEventListener('hashchange', handleHashChange);
-    };
+    return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('lavoroOnestoReports', JSON.stringify(reports));
-    } catch (error) {
-      console.error("Error saving reports to localStorage:", error);
-    }
-  }, [reports]);
-
-   useEffect(() => {
-    try {
-      // Filter out TOP_COMPANIES to only save user-added ones
-      const userAddedCompanies = companies.filter(c => !TOP_COMPANIES.includes(c));
-      localStorage.setItem('lavoroOnestoCompanies', JSON.stringify(userAddedCompanies));
-    } catch (error) {
-      console.error("Error saving companies to localStorage:", error);
-    }
-  }, [companies]);
-
-  useEffect(() => {
-    try {
-        localStorage.setItem('lavoroOnestoCustomSectors', JSON.stringify(customSectors));
-    } catch (error) {
-        console.error("Error saving custom sectors to localStorage:", error);
-    }
-  }, [customSectors]);
-
+  
   useEffect(() => {
     try {
         localStorage.setItem('lavoroOnestoSupportedReports', JSON.stringify(supportedReports));
@@ -109,51 +91,88 @@ const App: React.FC = () => {
   }, [supportedReports]);
 
 
-  const handleAddNewCompany = (companyName: string) => {
-    const trimmedName = companyName.trim();
-    if (trimmedName && !companies.find(c => c.toLowerCase() === trimmedName.toLowerCase())) {
-        setCompanies(prev => [...prev, trimmedName].sort());
+  const handleAddReport = async (newReport: ExperienceReport | JobOfferReport) => {
+    try {
+        const response = await fetch(API_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'addReport', payload: { report: newReport } })
+        });
+        if (!response.ok) throw new Error('Failed to save the report.');
+        
+        await fetchInitialData(); // Refresh all data
+        window.location.hash = '#/';
+    } catch (err) {
+        console.error("Error adding report:", err);
+        alert("Impossibile salvare la segnalazione. Riprova più tardi.");
     }
   };
 
-  const handleAddNewSector = (sectorName: string) => {
-    const trimmedName = sectorName.trim();
-    if (trimmedName && !SECTORS.includes(trimmedName) && !customSectors.includes(trimmedName)) {
-        setCustomSectors(prev => [...prev, trimmedName].sort());
-    }
-  };
+  const handleSupport = async (id: string) => {
+    if (supportedReports.includes(id)) return;
 
-
-  const handleAddExperienceReport = (newReport: ExperienceReport) => {
-    setReports((prevReports) => [newReport, ...prevReports]);
-    handleAddNewCompany(newReport.companyName);
-    if (!SECTORS.includes(newReport.sector)) {
-        handleAddNewSector(newReport.sector);
-    }
-    window.location.hash = '#/';
-  };
-
-  const handleAddJobOfferReport = (newReport: JobOfferReport) => {
-    setReports((prevReports) => [newReport, ...prevReports]);
-    handleAddNewCompany(newReport.companyName);
-    if (!SECTORS.includes(newReport.sector)) {
-        handleAddNewSector(newReport.sector);
-    }
-    window.location.hash = '#/';
-  };
-
-  const handleSupport = (id: string) => {
-    if (supportedReports.includes(id)) {
-        return; // Already supported, do nothing
-    }
-
-    setReports((prevReports) =>
-      prevReports.map((report) =>
-        report.id === id ? { ...report, supportCount: report.supportCount + 1 } : report
-      )
+    // Optimistic UI update
+    setReports(prev =>
+      prev.map(r => r.id === id ? { ...r, supportCount: r.supportCount + 1 } : r)
     );
-
     setSupportedReports(prev => [...prev, id]);
+
+    try {
+        await fetch(API_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'supportReport', payload: { id } })
+        });
+    } catch (err) {
+        console.error("Error supporting report:", err);
+        // Revert UI on failure
+        setReports(prev =>
+            prev.map(r => r.id === id ? { ...r, supportCount: r.supportCount - 1 } : r)
+        );
+        setSupportedReports(prev => prev.filter(supportedId => supportedId !== id));
+        alert("Impossibile registrare il supporto. Riprova più tardi.");
+    }
+  };
+  
+  const handleDeleteReport = async (id: string) => {
+    if (!isAdmin) {
+        alert("Azione non autorizzata.");
+        return;
+    }
+    try {
+        const response = await fetch(API_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'deleteReport', payload: { id, adminPassword } })
+        });
+        
+        if (response.status === 401) {
+             alert("Password di amministrazione errata.");
+             setIsAdmin(false);
+             setAdminPassword('');
+             window.location.hash = '#/admin';
+             return;
+        }
+
+        if (!response.ok) throw new Error('Failed to delete the report.');
+        
+        setReports(prev => prev.filter(r => r.id !== id));
+
+        const pathParts = currentPath.slice(1).split('/').filter(p => p);
+        if (pathParts[0] === 'report' && pathParts[1] === id) {
+          window.location.hash = '#/';
+        }
+
+    } catch (err) {
+        console.error("Error deleting report:", err);
+        alert("Impossibile eliminare la segnalazione. Riprova più tardi.");
+    }
+  };
+
+  const handleAdminLogin = (password: string) => {
+    setAdminPassword(password);
+    setIsAdmin(true);
+    window.location.hash = '#/';
   };
   
   const renderContent = () => {
@@ -171,31 +190,40 @@ const App: React.FC = () => {
                   companies={companies}
                   supportedReports={supportedReports}
                   allSectors={allSectors}
+                  isLoading={isLoading}
+                  error={error}
+                  isAdmin={isAdmin}
+                  onDelete={handleDeleteReport}
                 />;
       case 'segnala':
         if (param === 'esperienza') {
-          return <ReportForm onAddReport={handleAddExperienceReport} companies={companies} sectors={allSectors} />;
+          return <ReportForm onAddReport={handleAddReport} companies={companies} sectors={allSectors} />;
         }
         if (param === 'offerta') {
-          return <JobOfferForm onAddReport={handleAddJobOfferReport} companies={companies} sectors={allSectors} />;
+          return <JobOfferForm onAddReport={handleAddReport} companies={companies} sectors={allSectors} />;
         }
         return <AddReportChoice />;
       
       case 'risorse':
         return <ResourcesPage />;
       
+      case 'admin':
+        return <AdminLogin onLogin={handleAdminLogin} />;
+
       case 'report':
         const report = reports.find(r => r.id === param);
         if (!report) {
+            // If still loading, it might appear later
+            if (isLoading) return null;
             window.location.hash = '#/';
             return null;
         }
         const isSupported = supportedReports.includes(report.id);
         if (report.type === ReportType.Experience) {
-            return <ReportDetail report={report} onSupport={handleSupport} isSupported={isSupported} />;
+            return <ReportDetail report={report} onSupport={handleSupport} isSupported={isSupported} isAdmin={isAdmin} onDelete={handleDeleteReport}/>;
         }
         if (report.type === ReportType.JobOffer) {
-            return <JobOfferReportDetail report={report} onSupport={handleSupport} isSupported={isSupported} />;
+            return <JobOfferReportDetail report={report} onSupport={handleSupport} isSupported={isSupported} isAdmin={isAdmin} onDelete={handleDeleteReport} />;
         }
         return null;
 

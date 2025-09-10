@@ -8,9 +8,11 @@ interface JobOfferReportCardProps {
   report: JobOfferReport;
   onSupport: (id: string) => void;
   isSupported: boolean;
+  isAdmin?: boolean;
+  onDelete?: (id: string) => void;
 }
 
-const JobOfferReportCard: React.FC<JobOfferReportCardProps> = ({ report, onSupport, isSupported }) => {
+const JobOfferReportCard: React.FC<JobOfferReportCardProps> = ({ report, onSupport, isSupported, isAdmin, onDelete }) => {
     
     const timeAgo = (date: Date): string => {
         const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
@@ -31,6 +33,13 @@ const JobOfferReportCard: React.FC<JobOfferReportCardProps> = ({ report, onSuppo
         return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(amount);
     }
     
+    const handleDelete = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (onDelete && window.confirm('Sei sicuro di voler eliminare questa segnalazione? L\'azione è irreversibile.')) {
+            onDelete(report.id);
+        }
+    }
+
     const handleNav = (e: React.MouseEvent<HTMLAnchorElement>, path: string) => {
         e.preventDefault();
         window.location.hash = path;
@@ -38,11 +47,21 @@ const JobOfferReportCard: React.FC<JobOfferReportCardProps> = ({ report, onSuppo
 
 
     return (
-        <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden flex flex-col border-l-4 border-purple-500">
+        <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden flex flex-col border-l-4 border-purple-500 relative">
+            {isAdmin && onDelete && (
+                 <button 
+                    onClick={handleDelete}
+                    className="absolute top-3 right-3 z-10 bg-red-100 text-red-600 hover:bg-red-200 rounded-full w-8 h-8 flex items-center justify-center transition-colors"
+                    aria-label="Elimina segnalazione"
+                    title="Elimina segnalazione"
+                >
+                    <i className="fa-solid fa-trash-can"></i>
+                </button>
+            )}
             <div className="p-6 flex-grow">
                 <div className="flex justify-between items-start">
                     <span className="text-xs font-semibold text-purple-600 bg-purple-100 px-2 py-1 rounded-full">{report.sector}</span>
-                    <span className="text-xs text-slate-500">{timeAgo(report.createdAt)}</span>
+                    <span className="text-xs text-slate-500 pr-8">{timeAgo(report.createdAt)}</span>
                 </div>
                 <a href={`#/report/${report.id}`} onClick={(e) => handleNav(e, `#/report/${report.id}`)} className="no-underline">
                     <h3 className="mt-4 text-xl font-bold text-slate-800 hover:text-sky-700">

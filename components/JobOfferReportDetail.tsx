@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { JobOfferReport } from '../types';
 import { BuildingIcon, HandshakeIcon, TagIcon, LinkIcon, DocumentTextIcon } from './icons/IconComponents';
@@ -6,14 +7,22 @@ interface JobOfferReportDetailProps {
   report: JobOfferReport;
   onSupport: (id: string) => void;
   isSupported: boolean;
+  isAdmin?: boolean;
+  onDelete?: (id: string) => void;
 }
 
-const JobOfferReportDetail: React.FC<JobOfferReportDetailProps> = ({ report, onSupport, isSupported }) => {
+const JobOfferReportDetail: React.FC<JobOfferReportDetailProps> = ({ report, onSupport, isSupported, isAdmin, onDelete }) => {
     
     const formatCurrency = (amount?: number) => {
         if (typeof amount !== 'number') return 'N/D';
         return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(amount);
     }
+
+    const handleDelete = () => {
+        if (onDelete && window.confirm('Sei sicuro di voler eliminare questa segnalazione? L\'azione è irreversibile.')) {
+            onDelete(report.id);
+        }
+    };
 
     const handleNav = (e: React.MouseEvent<HTMLAnchorElement>, path: string) => {
         e.preventDefault();
@@ -23,10 +32,22 @@ const JobOfferReportDetail: React.FC<JobOfferReportDetailProps> = ({ report, onS
     return (
     <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
       <div className="p-6 sm:p-8">
-        <a href="#/" onClick={(e) => handleNav(e, '#/')} className="mb-6 text-sm font-medium text-sky-600 hover:text-sky-800 flex items-center space-x-2">
-            <i className="fa-solid fa-arrow-left"></i>
-            <span>Torna a tutte le segnalazioni</span>
-        </a>
+        <div className="flex justify-between items-center mb-6">
+            <a href="#/" onClick={(e) => handleNav(e, '#/')} className="text-sm font-medium text-sky-600 hover:text-sky-800 flex items-center space-x-2">
+                <i className="fa-solid fa-arrow-left"></i>
+                <span>Torna a tutte le segnalazioni</span>
+            </a>
+            {isAdmin && onDelete && (
+                <button 
+                    onClick={handleDelete}
+                    className="bg-red-100 text-red-600 hover:bg-red-600 hover:text-white rounded-lg px-3 py-2 flex items-center space-x-2 transition-colors text-sm font-semibold"
+                    aria-label="Elimina segnalazione"
+                >
+                    <i className="fa-solid fa-trash-can"></i>
+                    <span>Elimina</span>
+                </button>
+            )}
+        </div>
 
         <span className="text-xs font-semibold text-purple-600 bg-purple-100 px-2 py-1 rounded-full">{report.sector}</span>
         

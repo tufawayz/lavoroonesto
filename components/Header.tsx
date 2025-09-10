@@ -44,6 +44,13 @@ const Header: React.FC = () => {
             >
               Risorse Utili
             </a>
+             <a
+              href="#/admin"
+              onClick={(e) => handleNav(e, '#/admin')}
+              className="px-3 py-2 text-sm font-medium text-slate-600 hover:text-sky-600 transition-colors"
+            >
+              Admin
+            </a>
           </nav>
         </div>
       </div>
